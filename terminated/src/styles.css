@@ -1,0 +1,220 @@
+:root {
+  color-scheme: dark;
+  font-family: "Cascadia Mono", "IBM Plex Mono", Consolas, "Courier New", monospace;
+  color: #e4e2dc;
+  background: #050505;
+  font-synthesis: none;
+  --black: #050505;
+  --coal: #0c0c0b;
+  --panel: #101010;
+  --ink: #e4e2dc;
+  --ink-dim: #b3b0a8;
+  --muted: #7d7b76;
+  --line: #2c2c2a;
+  --line-strong: #454542;
+  --red: #d21f32;
+  --red-bright: #ff4155;
+  --red-dark: #5e0e18;
+  --red-faint: rgb(210 31 50 / 12%);
+  --photo-filter: grayscale(1) contrast(1.2) brightness(.78);
+  --photo-dead: grayscale(1) contrast(1.55) brightness(.36) sepia(.45) saturate(2.2) hue-rotate(-18deg);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-width: 320px; min-height: 100%; margin: 0; }
+body { min-height: 100vh; background: var(--black); }
+button, input { font: inherit; }
+button { color: inherit; }
+img { display: block; }
+button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2px solid #fff; outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* ============ Roster setup ============ */
+.setup-shell { position: relative; min-height: 100vh; padding: 0 clamp(1rem, 5vw, 5rem) clamp(2rem, 5vw, 5rem); background: radial-gradient(circle at 82% 4%, #22090f 0, transparent 30%), linear-gradient(135deg, #090909, #030303 70%); }
+.setup-shell::before { content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .16; background: repeating-linear-gradient(0deg, transparent 0 3px, #fff 3px 4px); mix-blend-mode: soft-light; }
+.classification-bar { display: flex; justify-content: space-between; gap: 1rem; max-width: 1500px; margin: 0 auto clamp(2rem, 6vh, 4rem); padding: .55rem 0; border-bottom: 1px solid var(--red-dark); color: var(--red); font-size: .66rem; letter-spacing: .24em; }
+.classification-bar span:nth-child(2) { color: var(--muted); }
+.setup-header { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(260px, .6fr); align-items: end; gap: 2rem; max-width: 1500px; margin: 0 auto clamp(2rem, 5vh, 4rem); padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
+.eyebrow { margin: 0 0 1rem; color: var(--red); letter-spacing: .22em; font-size: clamp(.7rem, 1.1vw, .9rem); }
+.setup-header h1 { position: relative; margin: 0; font-size: clamp(3.4rem, 10vw, 9rem); line-height: .8; letter-spacing: -.07em; }
+.setup-header h1::after { content: attr(data-text); position: absolute; inset: 0; color: var(--red); clip-path: inset(54% 0 34% 0); transform: translateX(4px); opacity: .65; animation: title-slice 7s steps(1) infinite; }
+.archive-brief { display: grid; gap: .8rem; padding: 1rem 1.1rem; border: 1px solid var(--line); border-left: 3px solid var(--red); background: rgb(12 12 11 / 80%); }
+.archive-brief > span { color: var(--red); font-size: .68rem; letter-spacing: .2em; }
+.archive-brief p { margin: 0; color: var(--ink-dim); font-size: .8rem; line-height: 1.6; }
+.audio-armed { display: flex; align-items: center; gap: .6rem; color: var(--ink); font-size: .66rem; font-weight: 400; letter-spacing: .16em; }
+.audio-armed i { width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 10px var(--red); animation: pulse-dot 2.4s ease-in-out infinite; }
+.roster-form { max-width: 1500px; margin: auto; }
+.form-heading { display: flex; justify-content: space-between; align-items: end; gap: 2rem; }
+.form-heading > div { display: flex; align-items: baseline; gap: 1rem; }
+.section-index { color: var(--red); }
+.form-heading h2 { margin: 0; font-size: clamp(1.4rem, 2.8vw, 2.4rem); text-transform: uppercase; letter-spacing: .04em; }
+.roster-count { color: var(--muted); font-size: .76rem; letter-spacing: .15em; }
+.privacy-note { margin: 1rem 0 2rem; padding: .9rem 1rem; border-left: 3px solid var(--red); background: var(--red-faint); color: var(--ink-dim); font-size: .76rem; line-height: 1.6; letter-spacing: .04em; }
+.roster-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 1rem; }
+.roster-card { position: relative; display: grid; grid-template-columns: 140px minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; gap: .9rem clamp(1rem, 2.5vw, 2rem); min-width: 0; margin: 0; padding: 1.1rem; border: 1px solid var(--line); background: linear-gradient(90deg, #111110, #080808); }
+.roster-card legend { padding: 0 .7rem; color: var(--red); font-size: .7rem; letter-spacing: .18em; }
+.photo-slot { position: relative; grid-row: 1 / 3; display: grid; place-items: center; width: 100%; aspect-ratio: 4/5; overflow: hidden; border: 1px solid var(--line-strong); background: repeating-linear-gradient(135deg, #111 0 8px, #181818 8px 9px); color: #5b5b58; text-align: center; font-size: .68rem; letter-spacing: .15em; line-height: 1.6; }
+.photo-slot img { width: 100%; height: 100%; object-fit: cover; filter: var(--photo-filter); }
+.photo-slot b { position: absolute; left: 0; bottom: 0; padding: .2rem .4rem; background: #000; color: var(--muted); font-size: .58rem; font-weight: 400; letter-spacing: .1em; }
+.entry-fields { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem 1rem; min-width: 0; align-items: center; }
+.entry-fields label:not(.file-label) { grid-column: 1 / -1; color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .14em; }
+.entry-fields input:not([type]) { grid-column: 1 / -1; min-width: 0; width: 100%; padding: .7rem 0; border: 0; border-bottom: 1px solid #545450; background: transparent; color: var(--ink); font-size: clamp(1.05rem, 1.8vw, 1.4rem); text-transform: uppercase; }
+.entry-fields input:not([type])[aria-invalid="true"] { border-bottom-color: var(--red-dark); }
+.entry-fields input::placeholder { color: #4d4d4a; }
+.entry-fields .field-error:not([id]) { grid-column: 1 / -1; }
+.file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.file-label, .secondary-button, .remove-button { display: inline-flex; justify-content: center; align-items: center; padding: .65rem .8rem; border: 1px solid #565652; background: transparent; cursor: pointer; font-size: .7rem; letter-spacing: .1em; }
+.file-label:hover, .secondary-button:hover, .remove-button:not(:disabled):hover { border-color: var(--red); color: #fff; }
+.file-state, .field-error { min-width: 0; color: var(--muted); font-size: .66rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.field-error { color: #ff6475; }
+.dossier-meta { grid-column: 2; display: grid; grid-template-columns: auto 1fr auto 1fr; gap: .2rem .7rem; align-items: baseline; padding-top: .6rem; border-top: 1px dashed var(--line); font-size: .6rem; letter-spacing: .14em; }
+.dossier-meta span { color: var(--muted); }
+.dossier-meta b { color: var(--red); font-weight: 400; }
+.dossier-meta b.is-valid { color: var(--ink); }
+.remove-button { grid-column: 3; grid-row: 1 / 3; align-self: start; color: var(--muted); }
+.remove-button:disabled { cursor: not-allowed; opacity: .25; }
+.setup-actions { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-top: 2rem; }
+.play-cluster { display: grid; justify-items: end; gap: .5rem; }
+.play-cluster small { color: var(--muted); font-size: .64rem; letter-spacing: .1em; }
+.play-button { display: flex; gap: 2rem; align-items: center; padding: 1rem 1.5rem; border: 1px solid var(--red); background: var(--red); color: #fff; cursor: pointer; letter-spacing: .13em; }
+.play-button:not(:disabled):hover { background: var(--red-bright); }
+.play-button:disabled { border-color: #2d2d2b; background: #161616; color: #555; cursor: not-allowed; }
+.form-status { color: var(--muted); text-align: right; font-size: .7rem; }
+
+/* ============ Loop: profile -> flicker -> terminated ============ */
+.simulation { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; height: 100dvh; overflow: hidden; background: radial-gradient(ellipse at 40% 45%, #161515 0, #080808 52%, #020202 100%); text-transform: uppercase; isolation: isolate; }
+.simulation.phase-terminated { background: radial-gradient(ellipse at 40% 45%, #200b0f 0, #090606 52%, #020202 100%); }
+.simulation::before { content: ""; position: fixed; z-index: 14; inset: 0; pointer-events: none; opacity: .1; background: repeating-linear-gradient(0deg, transparent 0 2px, #000 2px 4px); }
+.simulation::after { content: ""; position: fixed; z-index: 20; inset: 0; pointer-events: none; box-shadow: inset 0 0 16vmin #000, inset 0 0 3vmin rgb(210 31 50 / 9%); }
+.noise { position: fixed; z-index: 15; inset: -30%; pointer-events: none; opacity: .045; background-image: repeating-radial-gradient(circle at 17% 23%, #fff 0 1px, transparent 1px 5px), repeating-radial-gradient(circle at 73% 61%, #fff 0 1px, transparent 1px 7px); background-size: 13px 17px, 19px 11px; animation: noise-shift 1.6s steps(2) infinite; }
+.scanline { position: fixed; z-index: 16; left: 0; right: 0; height: 12vh; pointer-events: none; background: linear-gradient(transparent, rgb(210 31 50 / 5%), transparent); animation: scan 10s linear infinite; }
+.is-paused .noise, .is-paused .scanline { animation-play-state: paused; }
+
+.stage { position: relative; z-index: 5; display: grid; place-items: center; grid-template-areas: "slot"; min-height: 0; overflow: hidden; padding: clamp(.8rem, 3vh, 2.5rem) clamp(.8rem, 4vw, 4rem); }
+
+/* One template for all three steps. */
+.dossier { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: clamp(1.5rem, 4.5vw, 5rem); width: min(1560px, 100%); max-height: 100%; padding: clamp(1rem, 3vw, 3rem); border: 1px solid var(--line); background: linear-gradient(120deg, rgb(18 18 17 / 92%), rgb(6 6 6 / 92%)); animation: slide-in .75s cubic-bezier(.16, .84, .3, 1) both; grid-area: slot; }
+/* Next developer: the terminated dossier slides out left while the new one slides in from the right. */
+.dossier.phase-terminated.is-leaving { animation: slide-out .75s cubic-bezier(.7, 0, .84, 0) both; pointer-events: none; }
+.dossier-corner { position: absolute; width: clamp(18px, 2.4vw, 34px); height: clamp(18px, 2.4vw, 34px); border: 0 solid var(--red); }
+.dossier-corner.tl { left: -1px; top: -1px; border-width: 3px 0 0 3px; }
+.dossier-corner.tr { right: -1px; top: -1px; border-width: 3px 3px 0 0; }
+.dossier-corner.bl { left: -1px; bottom: -1px; border-width: 0 0 3px 3px; }
+.dossier-corner.br { right: -1px; bottom: -1px; border-width: 0 3px 3px 0; }
+.dossier-photo { position: relative; height: min(70vh, 820px); aspect-ratio: 4/5; overflow: hidden; border: 1px solid var(--line-strong); background: #0b0b0b; }
+.dossier-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 60%, rgb(210 31 50 / 22%)), repeating-linear-gradient(0deg, transparent 0 3px, rgb(0 0 0 / 22%) 3px 4px); }
+.dossier-photo img { width: 100%; height: 100%; object-fit: cover; filter: var(--photo-filter); animation: photo-develop 1.4s ease-out both; }
+.dossier-photo-tag { position: absolute; z-index: 2; left: 0; top: 1rem; padding: .3rem .7rem; background: var(--red); color: #fff; font-size: clamp(.55rem, .8vw, .72rem); letter-spacing: .18em; }
+.dossier-copy { display: grid; gap: clamp(.8rem, 2.4vh, 1.8rem); min-width: 0; }
+.dossier-kicker { margin: 0; color: var(--red); font-size: clamp(.58rem, .85vw, .8rem); letter-spacing: .22em; }
+.dossier-title { margin: 0; padding-bottom: .6rem; border-bottom: 2px solid var(--red); color: var(--ink-dim); font-size: clamp(1.1rem, 2.6vw, 2.6rem); letter-spacing: .55em; }
+.dossier-name { position: relative; margin: 0; font-size: clamp(2.8rem, 10vw, 13rem); line-height: .86; letter-spacing: -.045em; overflow-wrap: anywhere; }
+.dossier-data { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--line); }
+.dossier-data div { padding: .6rem .8rem; background: var(--coal); }
+.dossier-data dt { color: var(--muted); font-size: .58rem; letter-spacing: .16em; }
+.dossier-data dd { margin: .3rem 0 0; font-size: clamp(.8rem, 1.3vw, 1.2rem); }
+.dossier-data dd.is-dead { color: var(--red-bright); }
+.dossier-barcode { display: flex; gap: 3px; height: clamp(26px, 4.5vh, 48px); opacity: .55; }
+.dossier-barcode i { display: block; height: 100%; background: var(--ink-dim); }
+
+/* Step 2: flicker. At most two deep dips per run (below three flashes per second), the rest is low-amplitude jitter toward black, never toward white. */
+.dossier.phase-flicker { animation: dossier-flicker .9s linear both; }
+.dossier.phase-flicker .dossier-photo img { animation: photo-jitter .9s steps(1) both; }
+.simulation.phase-flicker .stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgb(210 31 50 / 10%) 0 2px, transparent 2px 7px); animation: band-roll .9s linear both; }
+
+/* Step 3: same template, face crossed out in red and the TERMINATED stamp. */
+.dossier.phase-terminated { animation: none; border-color: var(--red-dark); box-shadow: 0 0 80px rgb(210 31 50 / 16%); }
+.dossier.phase-terminated .dossier-photo { border-color: var(--red); }
+.dossier.phase-terminated .dossier-photo img { filter: var(--photo-dead); animation: photo-kill .5s ease-out both; }
+.dossier-crossout { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; fill: none; stroke: var(--red-bright); stroke-linecap: round; stroke-width: 2.6; filter: drop-shadow(0 0 6px rgb(210 31 50 / 70%)); }
+.dossier-crossout path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .35s ease-out both; }
+.dossier-crossout path:nth-child(2) { animation-delay: .12s; }
+.dossier.phase-terminated .dossier-name::after { content: ""; position: absolute; left: -2%; right: -2%; top: 48%; height: .09em; background: var(--red); transform: rotate(-2deg); animation: strike .3s ease-out .3s both; transform-origin: left; }
+.dossier.phase-terminated .dossier-title { color: var(--red); }
+.terminated-stamp { position: absolute; z-index: 3; left: 50%; top: 50%; margin: 0; padding: .1em .35em; border: clamp(4px, .6vw, 8px) solid var(--red); background: rgb(5 5 5 / 70%); color: var(--red); font-size: clamp(2.6rem, 10vw, 11rem); font-weight: 700; line-height: 1; letter-spacing: -.03em; text-shadow: 0 0 40px var(--red-dark); white-space: nowrap; transform: translate(-50%, -50%) rotate(-9deg); animation: stamp-in .45s cubic-bezier(.2, 1.6, .4, 1) .35s both; }
+
+/* Operator controls */
+.operator-controls { position: relative; z-index: 30; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: .3rem; padding: .5rem .8rem; border-top: 1px solid var(--line); background: rgb(4 4 4 / 95%); opacity: .55; transition: opacity .2s; }
+.operator-controls:hover, .operator-controls:focus-within { opacity: 1; }
+.operator-controls button, .volume-control { display: inline-flex; align-items: center; gap: .5rem; padding: .4rem .7rem; border: 1px solid #373735; background: transparent; color: #aaa; font-size: .62rem; letter-spacing: .06em; }
+.operator-controls button { cursor: pointer; }
+.operator-controls button:hover, .operator-controls button:focus-visible { border-color: var(--red); color: #fff; }
+.operator-controls button[aria-pressed="true"] { border-color: var(--red-dark); color: #f37c89; }
+.operator-controls button:disabled { cursor: not-allowed; opacity: .4; }
+.volume-control input { width: clamp(70px, 8vw, 120px); accent-color: var(--red); }
+.volume-control output { min-width: 2.2ch; color: var(--ink); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ============ Keyframes ============ */
+@keyframes noise-shift { 0% { transform: translate(0); } 50% { transform: translate(3%, -2%); } 100% { transform: translate(-2%, 3%); } }
+@keyframes scan { from { top: -12vh; } to { top: 112vh; } }
+@keyframes title-slice { 0%, 88%, 100% { clip-path: inset(54% 0 34% 0); transform: translateX(4px); } 90% { clip-path: inset(20% 0 66% 0); transform: translateX(-6px); } 94% { clip-path: inset(70% 0 12% 0); transform: translateX(8px); } }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes slide-in { from { transform: translateX(110vw); } to { transform: none; } }
+@keyframes slide-out { from { transform: none; } to { transform: translateX(-110vw); } }
+@keyframes dossier-in { 0% { opacity: 0; transform: translateX(-16px); filter: blur(4px); } 60% { opacity: .8; transform: translateX(4px); filter: blur(0); } 100% { opacity: 1; transform: none; } }
+@keyframes photo-develop { from { filter: grayscale(1) brightness(2) contrast(.4) blur(6px); } to { filter: grayscale(1) contrast(1.2) brightness(.78); } }
+@keyframes dossier-flicker {
+  0%, 8% { opacity: 1; transform: none; }
+  10%, 16% { opacity: .12; transform: translateX(-6px); }
+  18% { opacity: .9; transform: translateX(3px); }
+  26% { opacity: .75; transform: none; }
+  32% { opacity: .95; transform: translateX(-2px) skewX(-2deg); }
+  44% { opacity: .8; transform: none; }
+  52%, 60% { opacity: .1; transform: translateX(8px); }
+  62% { opacity: .85; transform: translateX(-3px); }
+  74% { opacity: .7; transform: skewX(2deg); }
+  86% { opacity: .95; transform: none; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes photo-jitter { 0% { transform: none; } 20% { transform: translate(-4%, 1%) scale(1.04); } 35% { transform: translate(3%, -1%); } 55% { transform: translate(-2%, 0) scale(1.06); filter: grayscale(1) contrast(1.6) brightness(.5) sepia(.6) hue-rotate(-20deg) saturate(3); } 75% { transform: translate(2%, 1%); } 100% { transform: none; } }
+@keyframes band-roll { from { background-position: 0 0; opacity: .9; } to { background-position: 0 140px; opacity: 0; } }
+@keyframes photo-kill { from { filter: grayscale(1) contrast(1.2) brightness(.78); } to { filter: grayscale(1) contrast(1.55) brightness(.36) sepia(.45) saturate(2.2) hue-rotate(-18deg); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes strike { from { transform: rotate(-2deg) scaleX(0); } to { transform: rotate(-2deg) scaleX(1); } }
+@keyframes stamp-in { from { opacity: 0; transform: translate(-50%, -50%) rotate(-9deg) scale(1.8); } to { opacity: 1; transform: translate(-50%, -50%) rotate(-9deg) scale(1); } }
+
+/* ============ Layouts ============ */
+
+/* Portrait / 9:16: photo on top, name below, everything centered. */
+@media (orientation: portrait) {
+  .dossier { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: clamp(1rem, 3vh, 2.5rem); text-align: center; }
+  .dossier-photo { height: min(52vh, 112vw); }
+  .dossier-copy { width: 100%; }
+  .dossier-name { font-size: clamp(2.4rem, 12vw, 8rem); }
+  .dossier-barcode { justify-content: center; }
+  .terminated-stamp { top: 34%; font-size: clamp(2.4rem, 15vw, 9rem); }
+}
+
+/* Narrow screens (phones, small windows). */
+@media (max-width: 760px) {
+  .classification-bar span:nth-child(3) { display: none; }
+  .setup-header { grid-template-columns: 1fr; }
+  .roster-card { grid-template-columns: 96px minmax(0, 1fr); }
+  .remove-button { grid-column: 1 / -1; grid-row: auto; }
+  .dossier-meta { grid-column: 1 / -1; }
+  .setup-actions { flex-direction: column; align-items: stretch; }
+  .play-cluster { justify-items: stretch; }
+  .play-button, .secondary-button { justify-content: center; }
+  .form-status { text-align: center; }
+  .dossier { padding: 1rem .8rem; }
+  .dossier-photo { height: min(46vh, 100vw); }
+  .dossier-kicker { display: none; }
+  .dossier-title { letter-spacing: .35em; }
+  .operator-controls { gap: .25rem; padding: .45rem; opacity: 1; }
+  .operator-controls button, .volume-control { flex: 1 1 30%; justify-content: center; padding: .45rem .3rem; font-size: .56rem; }
+}
+
+/* Short landscape windows. */
+@media (orientation: landscape) and (max-height: 620px) {
+  .dossier-photo { height: 66vh; }
+  .dossier-barcode { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
+  .noise, .scanline { display: none; }
+  /* The flicker step becomes a steady dimmed frame. */
+  .dossier.phase-flicker { animation: none !important; opacity: .45; }
+  .dossier.phase-flicker .dossier-photo img { animation: none !important; }
+  .simulation.phase-flicker .stage::after { display: none; }
+}

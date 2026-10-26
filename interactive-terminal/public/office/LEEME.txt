@@ -1,0 +1,9 @@
+Fotos de la oficina para las variantes CAPTCHA y "Elige quién sobrevive".
+
+1. Copia aquí las imágenes (jpg, png o webp).
+2. En src/data/office.ts pon el nombre del archivo en el campo `photo`
+   del escritorio o desarrollador correspondiente, por ejemplo:
+     { id: 'desk-01', label: 'ESCRITORIO 01', photo: 'escritorio-01.jpg' }
+     { id: 'dev-1', name: 'ANA', role: 'BACKEND', photo: 'ana.jpg' }
+
+Los que no tengan `photo` siguen mostrando el dibujo "FOTO PENDIENTE".

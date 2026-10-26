@@ -1,0 +1,23 @@
+VIDEOS DE EVIL AI
+=================
+
+Copiá acá los clips CCTV (.mp4 o .webm). No hace falta tocar código:
+cada archivo de esta carpeta entra solo en la playlist.
+
+1. Copiá el archivo, por ejemplo: pasillo-colapso.mp4
+   Nombres en minúsculas, sin espacios ni acentos (se aceptan igual, pero así es más fácil).
+2. Reiniciá `npm run dev` o volvé a correr `npm run build`.
+3. Abrí el panel de operador (Shift+O) y pulsá PROBAR en el clip para verlo.
+
+Formatos recomendados: MP4 H.264 (+ AAC si tiene sonido) o WebM VP9.
+Duración recomendada: 6 a 20 segundos. A los 45 s se corta igual.
+
+Opcional, en src/data/videos.ts (videoOverrides), por nombre de archivo:
+  label      texto de cámara, ej. 'CAM 04 // PASILLO NORTE'
+  durationMs duración del clip
+  weight     cuánto sale comparado con los demás (1 por defecto)
+  fit        'contain' (se ve entero) o 'cover' (llena la pantalla recortando)
+  cctv       false si el clip ya tiene tratamiento de cámara de seguridad
+
+Sin clips en esta carpeta se usan feeds de prueba ("SIN SEÑAL DE VIDEO").
+Antes de exhibir, registrar procedencia y permisos en assets/PROVENANCE.md.
