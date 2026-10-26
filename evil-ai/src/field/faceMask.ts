@@ -99,7 +99,8 @@ function drawLuminance(ctx: Ctx, random: () => number) {
 }
 
 function drawRed(ctx: Ctx) {
-  ctx.fillStyle = 'rgba(255,255,255,1)'
+  // Dim red slits; the bright pupils are drawn by the engine every frame so they can move.
+  ctx.fillStyle = 'rgba(255,255,255,0.4)'
   mirrored(ctx, (side) => polygon(ctx, [[0.5, -0.16], [0.14, -0.04], [0.16, 0.07], [0.46, 0.02]], side))
   // Teeth.
   ctx.strokeStyle = 'rgba(255,255,255,0.7)'
@@ -141,6 +142,7 @@ function render(cols: number, rows: number, cellW: number, cellH: number, layout
   // Pixel space -> supersampled cell space, then unit face space.
   ctx.scale(SUPERSAMPLE / cellW, SUPERSAMPLE / cellH)
   ctx.translate(layout.cx, layout.cy)
+  ctx.rotate(layout.rotation ?? 0)
   ctx.scale(layout.size / 2, layout.size / 2)
   draw(ctx)
   return sample(canvas, cols, rows)

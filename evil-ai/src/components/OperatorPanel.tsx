@@ -1,3 +1,4 @@
+import { EVENT_KINDS, EVENT_LABELS, type EventKind } from '../domain/events'
 import type { VideoEntry } from '../domain/manifest'
 import type { ClipStatus } from './VideoInterlude'
 
@@ -19,8 +20,8 @@ export interface PanelActions {
   close: () => void
   togglePause: () => void
   nextEvent: () => void
-  faceNow: () => void
-  videoNow: (id?: string) => void
+  runEvent: (kind: EventKind) => void
+  videoNow: (id: string) => void
   restart: () => void
   toggleStable: () => void
   toggleMute: () => void
@@ -59,12 +60,16 @@ export function OperatorPanel({ state, actions, videos, statuses }: {
       <div className="operator-buttons">
         <button type="button" onClick={actions.togglePause} aria-pressed={state.paused}>[ESPACIO] {state.paused ? 'REANUDAR' : 'PAUSAR'}</button>
         <button type="button" onClick={actions.nextEvent}>[N] SIGUIENTE EVENTO</button>
-        <button type="button" onClick={actions.faceNow}>[C] ROSTRO AHORA</button>
-        <button type="button" onClick={() => actions.videoNow()}>[V] VIDEO AHORA</button>
         <button type="button" onClick={actions.restart}>[R] REINICIAR</button>
         <button type="button" onClick={actions.toggleStable} aria-pressed={state.stable}>[S] MODO ESTABLE {state.stable ? 'ON' : 'OFF'}</button>
         <button type="button" onClick={actions.toggleMute} aria-pressed={!state.muted}>[M] {state.muted ? 'ACTIVAR AUDIO' : 'SILENCIAR'}</button>
         <button type="button" onClick={actions.toggleFullscreen}>[F] {state.fullscreen ? 'SALIR FULLSCREEN' : 'FULLSCREEN'}</button>
+      </div>
+
+      <div className="operator-events">
+        {EVENT_KINDS.map((kind, index) => (
+          <button type="button" key={kind} onClick={() => actions.runEvent(kind)}>[{index + 1}] {EVENT_LABELS[kind]}</button>
+        ))}
       </div>
 
       <label className="operator-volume">
@@ -89,7 +94,7 @@ export function OperatorPanel({ state, actions, videos, statuses }: {
         </ul>
       </section>
 
-      <p className="operator-help">SHIFT+O abre y cierra este panel. Los atajos sólo funcionan con el panel abierto. URL: <code>?seed=404</code> fija la secuencia, <code>?stable=1</code> arranca en modo estable, <code>?safe=0.08</code> agranda la zona segura.</p>
+      <p className="operator-help">SHIFT+O abre y cierra este panel. Los atajos (1–4 para cada evento) sólo funcionan con el panel abierto. URL: <code>?seed=404</code> fija la secuencia, <code>?stable=1</code> arranca en modo estable, <code>?safe=0.08</code> agranda la zona segura.</p>
     </aside>
   )
 }

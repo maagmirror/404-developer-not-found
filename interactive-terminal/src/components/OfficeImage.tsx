@@ -28,9 +28,6 @@ export function OfficeImage({ photo, kind, alt }: OfficeImageProps) {
           <path d="M28 90 q2 -30 32 -32 q30 2 32 32z" />
         </g>
       )}
-      <text x="60" y="86" textAnchor="middle" fontSize="6" fill="oklch(0.55 0.02 20)" letterSpacing="1">
-        FOTO PENDIENTE
-      </text>
     </svg>
   )
 }

@@ -1,14 +1,35 @@
 // Canvas renderer for the ambient field: several panes of scrolling "machine logs" that the face
 // borrows its glyphs from. Glyphs are bucketed by color so each frame changes fillStyle a dozen times,
 // not once per cell.
+import { timing } from '../config'
 import { codeLines, fillerGlyphs, shadeRamp } from '../data/codeLines'
-import { faceEnvelope, type FaceLayout } from '../domain/face'
+import { faceDuration, faceEnvelope, gazeAt, type FaceLayout, type FaceTiming } from '../domain/face'
 import { buildFaceMask, type FaceMask } from './faceMask'
 
 export interface ActiveFace {
+  // Unique per appearance; a new key rebuilds the mask.
+  key: number
   startedAt: number
   layout: FaceLayout
+  timing: FaceTiming
+  gaze: 'erratic' | 'fixed'
+  tremble: boolean
+  slide?: { fromX: number; inMs: number; outMs: number }
 }
+
+// Per-frame overrides from the show: field speed in rows per second (null = normal drift)
+// and how many rows tear sideways (0..1).
+export interface Motion {
+  speed: number | null
+  glitch: number
+}
+
+// Eye centres in face units (see the slits in faceMask.ts).
+const EYE_X = 0.32
+const EYE_Y = -0.04
+const easeOut = (x: number) => 1 - (1 - x) ** 3
+const easeIn = (x: number) => x ** 3
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x))
 
 interface Line {
   id: number
@@ -112,32 +133,93 @@ export class FieldEngine {
       this.mask = null
       return
     }
-    if (face.startedAt === this.faceKey) return
-    this.faceKey = face.startedAt
+    if (face.key === this.faceKey) return
+    this.faceKey = face.key
     // The grid is drawn about one cell up-left of the screen origin (see the drift in render).
     const layout = { ...face.layout, cx: face.layout.cx + this.cellW, cy: face.layout.cy + this.cellH * 0.5 }
     this.mask = buildFaceMask(this.cols, this.rows, this.cellW, this.cellH, layout, this.random)
     for (let index = 0; index < this.delays.length; index += 1) this.delays[index] = this.random()
   }
 
-  render(now: number, dt: number, face: ActiveFace | null, stable: boolean) {
+  // Small bright pupils inside the slits. Darting: they jump to a new spot every ~0.1 s.
+  private drawPupils(face: ActiveFace, elapsed: number, stable: boolean, offsetX: number, offsetY: number, buckets: number[][], chars: string[]) {
+    const { cellW, cellH } = this
+    const f = faceEnvelope(elapsed, 0.5, true, face.timing)
+    if (f < 0.35) return
+    const unit = face.layout.size / 2
+    const gaze = gazeAt(elapsed, face.gaze, stable ? 600 : timing.gazeJumpMs, (a, b) => hash(face.key, a, b))
+    // Same grid shift as the mask (see syncFace).
+    const baseX = face.layout.cx + this.cellW + offsetX
+    const baseY = face.layout.cy + this.cellH * 0.5 + offsetY
+    const cos = Math.cos(face.layout.rotation ?? 0)
+    const sin = Math.sin(face.layout.rotation ?? 0)
+    const radiusX = Math.max(cellW * 0.5, unit * 0.035)
+    const radiusY = Math.max(cellH * 0.45, unit * 0.022)
+    for (const side of [-1, 1]) {
+      // Eye position in face units, turned with the head's tilt.
+      const ex = side * EYE_X + gaze.x
+      const ey = EYE_Y + gaze.y
+      const px = baseX + (ex * cos - ey * sin) * unit
+      const py = baseY + (ex * sin + ey * cos) * unit
+      for (let row = Math.floor((py - radiusY) / cellH); row <= Math.floor((py + radiusY) / cellH); row += 1) {
+        for (let col = Math.floor((px - radiusX) / cellW); col <= Math.floor((px + radiusX) / cellW); col += 1) {
+          const dx = (col + 0.5) * cellW - px
+          const dy = (row + 0.5) * cellH - py
+          if ((dx / (radiusX + cellW * 0.3)) ** 2 + (dy / (radiusY + cellH * 0.3)) ** 2 > 1) continue
+          chars.push(f > 0.7 ? '@' : '#')
+          buckets[GRAYS.length + (f > 0.7 ? 3 : 2)].push(col * cellW, row * cellH, chars.length - 1)
+        }
+      }
+    }
+  }
+
+  render(now: number, dt: number, face: ActiveFace | null, stable: boolean, motion: Motion = { speed: null, glitch: 0 }) {
     this.syncFace(face)
     const { ctx, cellW, cellH, cols, rows, mask } = this
     const faceElapsed = face ? now - face.startedAt : 0
     // The logs slow down while the face holds so it can be read.
-    const faceCalm = face ? faceEnvelope(faceElapsed, 0.5, true) : 0
-    const speedScale = (stable ? 0.35 : 1) * (1 - faceCalm * 0.8)
+    const faceCalm = face ? faceEnvelope(faceElapsed, 0.5, true, face.timing) : 0
+    const speedScale = motion.speed === null
+      ? (stable ? 0.35 : 1) * (1 - faceCalm * 0.8)
+      : motion.speed * (stable ? 0.15 : 1)
     const glitchRate = stable ? 0.0006 : 0.004
     const flickerSlot = Math.floor(now / 180)
     const faceSlot = Math.floor(now / (stable ? 1200 : 380))
     const breathe = 0.92 + 0.08 * Math.sin(now / 900)
 
+    // Torn rows: whole lines shoved sideways for a few frames. Off in stable mode.
+    const tear = stable ? 0 : motion.glitch
+    const tearSlot = Math.floor(now / 70)
+    const rowShift = (row: number) => (tear > 0 && hash(row, tearSlot, 5) < tear * 0.35 ? (hash(tearSlot, row, 9) - 0.5) * cellW * 26 : 0)
+
+    // Face offset: the peek slides in and out, the stare trembles.
+    let faceX = 0
+    let faceY = 0
+    if (face?.slide) {
+      const { fromX, inMs, outMs } = face.slide
+      const total = faceDuration(face.timing)
+      faceX = fromX * (1 - easeOut(clamp01(faceElapsed / inMs))) + fromX * easeIn(clamp01((faceElapsed - (total - outMs)) / outMs))
+    }
+    if (face?.tremble && !stable) {
+      const shake = Math.floor(now / 45)
+      faceX += (hash(shake, 1, 21) - 0.5) * cellW * 1.1
+      faceY += (hash(shake, 2, 21) - 0.5) * cellH * 0.5
+    }
+    const faceCol = Math.round(faceX / cellW)
+    const faceRow = Math.round(faceY / cellH)
+
     for (const pane of this.panes) {
+      // A pane keeps its own character: some columns run faster than others, even in the rush.
       pane.scroll += (pane.speed * speedScale * dt) / 1000
       while (pane.scroll >= 1) {
         pane.scroll -= 1
         pane.lines.shift()
         pane.lines.push(this.newLine(now))
+      }
+      while (pane.scroll < 0) {
+        pane.scroll += 1
+        pane.lines.pop()
+        pane.lines.unshift(this.newLine(now - 60000))
       }
     }
 
@@ -171,9 +253,11 @@ export class FieldEngine {
 
           // Under the face the logs fade out; the face itself is drawn on a fixed grid below,
           // so it stays aligned across panes that scroll at different speeds.
-          if (mask && faceElapsed > 0) {
-            const cell = screenRow * cols + col
-            const f = faceEnvelope(faceElapsed, this.delays[cell], stable)
+          const maskRow = screenRow - faceRow
+          const maskCol = col - faceCol
+          if (mask && face && faceElapsed > 0 && maskRow >= 0 && maskRow < rows && maskCol >= 0 && maskCol < cols) {
+            const cell = maskRow * cols + maskCol
+            const f = faceEnvelope(faceElapsed, this.delays[cell], stable, face.timing)
             if (f > 0) {
               const covered = mask.area[cell] > 0.4 || Math.max(mask.lum[cell], mask.red[cell]) > 0.05
               lum *= covered ? 1 - f : 1 - 0.8 * f
@@ -186,16 +270,17 @@ export class FieldEngine {
           if (red > 0.25) bucket = GRAYS.length + (red >= 0.85 ? 3 : red >= 0.55 ? 2 : lum > 0.3 ? 1 : 0)
           else bucket = Math.min(GRAYS.length - 1, Math.floor(lum * GRAYS.length))
           chars.push(char)
-          buckets[bucket].push(col * cellW, y, chars.length - 1)
+          buckets[bucket].push(col * cellW + rowShift(screenRow), y, chars.length - 1)
         }
       }
     }
 
-    if (mask && faceElapsed > 0) {
+    if (mask && face && faceElapsed > 0) {
       for (let row = 0; row < rows; row += 1) {
+        const shift = faceX + rowShift(row + faceRow)
         for (let col = 0; col < cols; col += 1) {
           const cell = row * cols + col
-          const f = faceEnvelope(faceElapsed, this.delays[cell], stable)
+          const f = faceEnvelope(faceElapsed, this.delays[cell], stable, face.timing)
           if (f <= 0) continue
           const target = mask.lum[cell] * breathe
           const eye = mask.red[cell]
@@ -211,9 +296,10 @@ export class FieldEngine {
             ? GRAYS.length + (red >= 0.85 ? 3 : red >= 0.55 ? 2 : 1)
             : Math.min(GRAYS.length - 1, Math.floor(lum * GRAYS.length))
           chars.push(char)
-          buckets[bucket].push(col * cellW, row * cellH, chars.length - 1)
+          buckets[bucket].push(col * cellW + shift, row * cellH + faceY, chars.length - 1)
         }
       }
+      this.drawPupils(face, faceElapsed, stable, faceX, faceY, buckets, chars)
     }
 
     const drift = stable ? 0.3 : 1

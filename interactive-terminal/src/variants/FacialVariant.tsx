@@ -6,10 +6,8 @@ import type { VariantProps } from './types'
 /** Each step asks the visitor to come closer, in ever smaller text. */
 const steps: { text: string; size: number; match: number }[] = [
   { text: 'NO NECESITO TU NOMBRE. ACÉRCATE A LA PANTALLA', size: 3, match: 12 },
-  { text: 'NO TE VEO BIEN. MÁS CERCA.', size: 2.4, match: 31 },
-  { text: 'MÁS CERCA.', size: 1.6, match: 54 },
-  { text: 'un poco más...', size: 1.1, match: 72 },
-  { text: 'más...', size: 0.8, match: 88 },
+  { text: 'NO TE VEO BIEN. MÁS CERCA.', size: 2, match: 41 },
+  { text: 'un poco más...', size: 1.1, match: 78 },
   { text: 'quieto. no te muevas.', size: 0.6, match: 97 },
 ]
 

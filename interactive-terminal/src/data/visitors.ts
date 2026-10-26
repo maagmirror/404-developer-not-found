@@ -8,11 +8,9 @@ export interface Visitor {
   specialBehavior?: string
 }
 
-export const visitors: Visitor[] = [
-  { id: 'aster', name: 'Aster', aliases: [] },
-  { id: 'boreal', name: 'Boreal', aliases: [] },
-  { id: 'marble', name: 'Marble', aliases: ['Slate'] },
-  { id: 'marrow', name: 'Marrow', aliases: ['Veil'] },
-  { id: 'ember', name: 'Ember', aliases: [] },
-  { id: 'flux', name: 'Flux', aliases: [] },
-]
+/**
+ * The prepopulated database: people the terminal already "knows". Add one line per person,
+ * e.g. `{ id: 'ana', name: 'Ana', aliases: ['Anita'] },` (aliases are optional nicknames).
+ * Names typed at the terminal are added on top of these (stored in the browser).
+ */
+export const visitors: Visitor[] = []

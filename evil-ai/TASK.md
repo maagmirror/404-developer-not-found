@@ -28,3 +28,36 @@ Pedido del usuario: implementar Evil AI completa. Campo de código que de vez en
 - Chrome real: audio audible, fullscreen, H.264 (Chromium de pruebas no trae ese codec) y `prefers-reduced-motion`.
 - Soak test de varias horas (FPS, memoria, deriva).
 - Videos finales: pendientes del usuario y sujetos a revisión de procedencia y privacidad.
+
+# Registro de tarea — rostro más rápido y cinco eventos (2026-10-26)
+
+## Pedido
+
+Rick: el mismo rostro pero generándose más rápido, entre glitches, sin texto abajo, con pupilas más chicas que miran erráticamente muy rápido. La cámara sin "sala de operaciones" y en PISO 5. Cinco eventos barajados, idle > evento > idle: (1) aparece y desaparece en varios lugares, (2) se asoma desde un costado mirando fijo, (3) se genera en el centro, tiembla y mueve las pupilas en todas direcciones, (4) video a media pantalla a la derecha con texto grande a la izquierda, (5) el fondo sube muy rápido, a veces baja, con glitch.
+
+## Cambios
+
+- `src/domain/events.ts` (nuevo): planificación pura de cada evento (apariciones, posiciones, deslizamiento, temblor, perfil del desboque).
+- `src/domain/scheduler.ts`: mazo barajado de los cinco eventos, sin repetir en el borde de ronda; el video sale sólo como evento 4.
+- `src/field/FieldEngine.ts`: pupilas dibujadas por frame (fijas o erráticas), desplazamiento del rostro (asomarse, temblar), velocidad del campo hacia arriba o abajo y filas rotas de costado.
+- `src/field/faceMask.ts`: ranuras de los ojos en rojo tenue; el rojo brillante queda sólo en las pupilas.
+- `src/components/VideoInterlude.tsx` y `styles.css`: titular a la izquierda y video en marco a la derecha (apilados en vertical).
+- `src/data/videos.ts`: etiqueta `PISO 5` en los dos clips de sala.
+- Panel: un botón por evento y atajos `1`–`5`.
+
+## Comprobaciones
+
+- `npm test`: 4 archivos / 24 tests.
+- `npm run build`: aprobado.
+- Chromium (silenciado), `?seed=404`, 1600×900 y 1080×1920: capturas de los cinco eventos; cada uno vuelve a idle; sin errores de consola. Clip WebM de prueba usado y borrado.
+
+## No ejecutado
+
+- Ver la velocidad real de las pupilas y del desboque en Chrome (las capturas son estáticas).
+- Los MP4 reales (Chromium de pruebas no trae H.264).
+
+# Registro de tarea — ajustes de eventos (2026-10-26, segunda tanda)
+
+- Pedido de Rick: quitar la cara que salta por la pantalla; el desboque debe acelerar, glitchear, ir para atrás y de nuevo para adelante; al asomarse, inclinar la cabeza como una cara real; en el video, en vez de la frase, `REPRODUCIENDO <archivo creepy>.mp4:` más chico.
+- Quedan cuatro eventos (`peek`, `stare`, `video`, `rush`; atajos `1`–`4`). La velocidad del desboque ahora se interpola por tramos (acelera en vez de saltar). El asomarse rota la máscara del rostro ±0,38 rad y las pupilas giran con la cabeza.
+- `npm test`: 4 archivos / 23 tests. `npm run build`: aprobado. Capturas en Chromium a 1600×900 de los cuatro eventos, sin errores de consola.

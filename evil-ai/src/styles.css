@@ -44,13 +44,6 @@ code { color: var(--ink); }
 .hud-3 { bottom: var(--safe); left: var(--safe); }
 .stage-video .hud, .stage-glitch-out .hud { opacity: 0; }
 
-.face-caption { position: absolute; z-index: 2; margin: 0; transform: translateX(-50%); max-width: 92vw; color: var(--ink); letter-spacing: .14em; text-shadow: 0 0 14px rgb(210 31 50 / 45%); pointer-events: none; }
-.face-caption span { display: inline-block; overflow: hidden; white-space: nowrap; vertical-align: bottom; max-width: calc(var(--chars) * 1ch + var(--chars) * .14em); animation: type-in 2.2s steps(var(--chars)) both, caption-in .5s ease-out both; }
-.face-caption span::after { content: "█"; color: var(--red); animation: cursor-blink 1.1s steps(1) infinite; }
-@keyframes type-in { from { max-width: 0; } }
-@keyframes caption-in { from { opacity: 0; } }
-@keyframes cursor-blink { 50% { opacity: 0; } }
-
 /* ============ Signal cut ============
    Darkens and displaces instead of brightening: no white flash, no strobe. */
 .is-cutting .code-field { animation: cut-shift .7s steps(6) both; }
@@ -62,6 +55,10 @@ code { color: var(--ink); }
   80% { transform: translate(.6%, 0); filter: brightness(.35); }
   100% { transform: translate(0, 0); filter: brightness(.3); }
 }
+/* Face glitch: a shorter, lighter version of the cut. */
+.is-blip .code-field { animation: cut-shift .28s steps(4) both; }
+.is-blip .signal-cut { background: rgb(5 5 5 / 15%); }
+.is-blip .signal-cut i { animation-duration: .28s; }
 .signal-cut { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: rgb(5 5 5 / 35%); }
 .signal-cut i { position: absolute; left: 0; right: 0; height: 7%; background: var(--noise); opacity: .14; mix-blend-mode: screen; animation: band 0.7s steps(5) both; }
 .signal-cut i:nth-child(1) { top: 12%; }
@@ -77,14 +74,23 @@ code { color: var(--ink); }
 }
 
 /* ============ CCTV ============ */
-.cctv { position: absolute; inset: 0; z-index: 3; background: #070707; opacity: 0; pointer-events: none; }
+.cctv { position: absolute; inset: 0; z-index: 3; display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); align-items: center; gap: 4vw; padding: var(--safe); background: rgb(5 5 5 / 92%); opacity: 0; pointer-events: none; }
 .cctv.is-visible { opacity: 1; }
+.cctv-headline { grid-column: 1; margin: 0; color: var(--ink); font-size: clamp(1.2rem, 2.2vw, 2.8rem); font-weight: 400; line-height: 1.3; letter-spacing: .02em; text-shadow: 0 0 22px rgb(210 31 50 / 35%); overflow-wrap: break-word; }
+.cctv-headline i { color: var(--red); font-style: normal; animation: cursor-blink 1.1s steps(1) infinite; }
+@keyframes cursor-blink { 50% { opacity: 0; } }
+.cctv-frame { grid-column: 2; position: relative; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #070707; border: 1px solid var(--line-strong); box-shadow: 0 0 0 1px #000, 0 0 60px rgb(0 0 0 / 80%); }
+@media (orientation: portrait) {
+  .cctv { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: center; gap: 5vh; }
+  .cctv-headline { grid-column: 1; font-size: clamp(1.2rem, 5vw, 3rem); }
+  .cctv-frame { grid-column: 1; }
+}
 .cctv-video { position: absolute; inset: 0; width: 100%; height: 100%; background: #070707; }
 .cctv-video.fit-contain { object-fit: contain; }
 .cctv-video.fit-cover { object-fit: cover; }
 .cctv.is-treated .cctv-video { filter: grayscale(1) contrast(1.15) brightness(.85); }
-.cctv-grain { position: absolute; inset: -20%; background: var(--noise); opacity: .1; animation: grain .5s steps(4) infinite; }
-.cctv.is-treated::after { content: ""; position: absolute; inset: 0; background:
+.cctv-grain { position: absolute; inset: -20%; pointer-events: none; background: var(--noise); opacity: .1; animation: grain .5s steps(4) infinite; }
+.cctv.is-treated .cctv-frame::after { content: ""; position: absolute; inset: 0; background:
   radial-gradient(ellipse at 50% 50%, transparent 50%, rgb(0 0 0 / 65%) 100%),
   repeating-linear-gradient(0deg, rgb(0 0 0 / 28%) 0 1px, transparent 1px 3px); }
 @keyframes grain {
@@ -93,11 +99,11 @@ code { color: var(--ink); }
   50% { transform: translate(3%, -5%); }
   75% { transform: translate(-2%, -2%); }
 }
-.cctv-overlay { position: absolute; inset: var(--safe); z-index: 2; color: rgb(236 234 228 / 82%); font-size: clamp(.8rem, 2vmin, 1.3rem); letter-spacing: .12em; text-shadow: 0 0 2px #000, 0 0 8px #000; }
+.cctv-overlay { position: absolute; inset: 4%; z-index: 2; color: rgb(236 234 228 / 82%); font-size: clamp(.6rem, 1.4vmin, 1rem); letter-spacing: .12em; text-shadow: 0 0 2px #000, 0 0 8px #000; }
 .cctv-overlay > * { position: absolute; }
-.cctv-overlay::before, .cctv-overlay::after { content: ""; position: absolute; width: 4vmin; height: 4vmin; border: 2px solid rgb(236 234 228 / 45%); }
-.cctv-overlay::before { top: -1.5vmin; left: -1.5vmin; border-right: 0; border-bottom: 0; }
-.cctv-overlay::after { bottom: -1.5vmin; right: -1.5vmin; border-left: 0; border-top: 0; }
+.cctv-overlay::before, .cctv-overlay::after { content: ""; position: absolute; width: 2.5vmin; height: 2.5vmin; border: 2px solid rgb(236 234 228 / 45%); }
+.cctv-overlay::before { top: -1vmin; left: -1vmin; border-right: 0; border-bottom: 0; }
+.cctv-overlay::after { bottom: -1vmin; right: -1vmin; border-left: 0; border-top: 0; }
 .cctv-rec { top: 0; left: 0; display: flex; align-items: center; gap: .6em; }
 .cctv-rec i { width: .75em; height: .75em; border-radius: 50%; background: var(--red); animation: rec 2.4s ease-in-out infinite; }
 @keyframes rec { 50% { opacity: .35; } }
@@ -110,7 +116,7 @@ code { color: var(--ink); }
   #0c0c0b; filter: blur(.5px); }
 .cctv-room::before { content: ""; position: absolute; left: 12%; right: 12%; top: 50%; height: 16%; background: repeating-linear-gradient(90deg, #1a1a18 0 18%, transparent 18% 22%); opacity: .8; }
 .cctv-room::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 30% 30%, rgb(255 255 255 / 5%), transparent 45%); }
-.cctv-lost { position: relative; margin: 0; color: rgb(228 226 220 / 55%); font-size: clamp(1.2rem, 4.2vmin, 3rem); letter-spacing: .3em; }
+.cctv-lost { position: relative; margin: 0; color: rgb(228 226 220 / 55%); font-size: clamp(1rem, 2.6vmin, 2rem); letter-spacing: .3em; }
 .cctv-hint { position: relative; margin: 1.2em 0 0; color: rgb(228 226 220 / 28%); font-size: clamp(.65rem, 1.4vmin, .85rem); letter-spacing: .1em; }
 
 /* ============ Operator ============ */
@@ -125,6 +131,7 @@ code { color: var(--ink); }
 .operator-readout div { min-width: 0; }
 .operator-readout dt { color: var(--muted); font-size: .66rem; letter-spacing: .16em; }
 .operator-readout dd { margin: .15rem 0 0; overflow-wrap: anywhere; }
+.operator-events { display: grid; gap: .4rem; }
 .operator-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem; }
 .operator-volume { display: grid; grid-template-columns: 8rem 1fr; align-items: center; gap: .8rem; color: var(--ink-dim); }
 .operator-volume input { accent-color: var(--red); }
@@ -146,17 +153,19 @@ code { color: var(--ink); }
 @keyframes cut-fade { to { filter: brightness(.3); } }
 .is-stable .signal-cut i { display: none; }
 .is-stable .cctv-grain { animation: none; }
-.is-stable .face-caption span { animation: caption-in 1.2s ease-out both; max-width: none; }
-.is-stable .face-caption span::after { animation: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .is-cutting .code-field { animation: cut-fade .7s ease both; }
-  .signal-cut i, .face-caption span::after { display: none; }
+  .signal-cut i, .cctv-headline i { display: none; }
   .cctv-grain, .cctv-rec i { animation: none; }
-  .face-caption span { animation: caption-in 1.2s ease-out both; max-width: none; }
 }
 
 @media (max-width: 700px) {
   .operator-buttons { grid-template-columns: 1fr; }
   .operator-volume { grid-template-columns: 1fr; }
+}
+
+.is-stable.is-blip .code-field { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .is-blip .code-field { animation: none; }
 }

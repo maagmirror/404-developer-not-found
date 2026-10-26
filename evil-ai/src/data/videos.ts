@@ -20,7 +20,8 @@ const files = import.meta.glob('../../media/videos/*.{mp4,m4v,webm,ogv,MP4,M4V,W
 export const videoOverrides: Record<string, VideoOverride> = {
   // 'pasillo-colapso.mp4': { label: 'CAM 04 // PASILLO NORTE', durationMs: 12000, weight: 2 },
   // The clip already has CAM 03 burned in and its own CCTV treatment.
-  'sala-operaciones.mp4': { label: 'SALA DE OPERACIONES // PISO 7', cctv: false },
+  'sala-operaciones.mp4': { label: 'PISO 5', cctv: false },
+  'sala-operaciones-larga.mp4': { label: 'PISO 5', cctv: false },
 }
 
 export const videos = buildManifest(files, videoOverrides, {

@@ -1,5 +1,6 @@
 /**
- * Sound effects synthesized with Web Audio: no files, works offline.
+ * Sound effects synthesized with Web Audio, plus recorded screams (assets/sounds/jumpscares, public/sounds)
+ * (the synthesized scream stays as the fallback if a recording fails to load).
  * Browsers only allow audio after a user gesture, so the context is created lazily
  * on the first keystroke/click and every effect is a no-op until then or while muted.
  */
@@ -41,6 +42,7 @@ export function unlockAudio(): void {
     master = context.createGain()
     master.gain.value = muted ? 0 : MASTER_VOLUME
     master.connect(context.destination)
+    loadScreamSamples(context)
 
     noiseBuffer = context.createBuffer(1, context.sampleRate, context.sampleRate)
     const data = noiseBuffer.getChannelData(0)
@@ -362,6 +364,116 @@ export function playScream(profile: ScreamProfile = screamProfiles[Math.floor(Ma
   }
 
   if (profile.sub) playReveal()
+}
+
+/**
+ * Every file in assets/sounds/jumpscares joins the jumpscare rotation (sources and licenses
+ * in CREDITS.md). Adding or removing one only needs a Vite restart.
+ */
+export const jumpscareScreamUrls: string[] = Object.values(
+  import.meta.glob<string>('../assets/sounds/jumpscares/*.{ogg,mp3,wav}', { eager: true, query: '?url', import: 'default' }),
+)
+
+/** The elimination ending always uses this one. */
+const terminatedScreamUrl = `${import.meta.env.BASE_URL}sounds/scream-terminated.ogg`
+
+/** Loud-part level every recording is evened out to, in dBFS. */
+const SCREAM_TARGET_DB = -11
+const SCREAM_WINDOW_S = 0.02
+
+/** Where the scream starts (leading silence skipped) and the gain that evens out its loudness. */
+export interface ScreamTrim {
+  offset: number
+  gain: number
+}
+
+/**
+ * Measures a recording in 20 ms windows: windows above a quarter of the loudest one count as the scream.
+ * Pure so it can be tested without Web Audio.
+ */
+export function measureScream(samples: Float32Array, sampleRate: number): ScreamTrim {
+  const size = Math.max(1, Math.floor(sampleRate * SCREAM_WINDOW_S))
+  const levels: number[] = []
+  let peak = 0
+  for (let start = 0; start < samples.length; start += size) {
+    let sum = 0
+    const end = Math.min(start + size, samples.length)
+    for (let i = start; i < end; i += 1) {
+      sum += samples[i] * samples[i]
+      peak = Math.max(peak, Math.abs(samples[i]))
+    }
+    levels.push(Math.sqrt(sum / (end - start)))
+  }
+  const loudest = Math.max(0, ...levels)
+  if (loudest === 0) return { offset: 0, gain: 1 }
+
+  const loud = levels.filter((level) => level > loudest * 0.25)
+  const loudRms = Math.sqrt(loud.reduce((sum, level) => sum + level * level, 0) / loud.length)
+  const first = levels.findIndex((level) => level > loudest * 0.25)
+  // Leave one window before the onset so the attack isn't clipped; keep peaks below ~+3 dB.
+  const offset = Math.max(0, first - 1) * size / sampleRate
+  const gain = Math.min(10 ** (SCREAM_TARGET_DB / 20) / loudRms, 1.4 / peak, 6)
+  return { offset, gain }
+}
+
+interface LoadedScream extends ScreamTrim {
+  buffer: AudioBuffer
+}
+
+const loadedScreams = new Map<string, LoadedScream>()
+
+/** Fetches, decodes and measures every recording once; a file that fails just stays on the synthesized fallback. */
+function loadScreamSamples(ctx: AudioContext): void {
+  for (const url of [...jumpscareScreamUrls, terminatedScreamUrl]) {
+    fetch(url)
+      .then((response) => {
+        if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`)
+        return response.arrayBuffer()
+      })
+      .then((data) => ctx.decodeAudioData(data))
+      .then((buffer) => loadedScreams.set(url, { buffer, ...measureScream(buffer.getChannelData(0), buffer.sampleRate) }))
+      .catch(() => {
+        // playScream() covers this recording.
+      })
+  }
+}
+
+/** Plays a recording through the master gain (so mute applies); false if it isn't loaded. */
+function playSample(url: string): boolean {
+  const audio = ready()
+  const scream = loadedScreams.get(url)
+  if (!audio || !scream) return false
+  const { ctx, out } = audio
+  const source = ctx.createBufferSource()
+  source.buffer = scream.buffer
+  const gain = ctx.createGain()
+  gain.gain.value = scream.gain
+  source.connect(gain).connect(out)
+  source.start(ctx.currentTime, scream.offset)
+  return true
+}
+
+/** Random recorded scream for jumpscares; synthesized scream if none is loaded. */
+export function playJumpscareScream(): void {
+  if (!ready()) return
+  const loaded = jumpscareScreamUrls.filter((url) => loadedScreams.has(url))
+  if (loaded.length === 0) {
+    playScream()
+    return
+  }
+  playSample(loaded[Math.floor(Math.random() * loaded.length)])
+  playReveal()
+}
+
+/** Dedicated scream over a glitch burst and sub hit for the elimination ending. */
+export function playTerminatedScream(): void {
+  if (!ready()) return
+  if (!playSample(terminatedScreamUrl)) {
+    playScream()
+    return
+  }
+  playGlitch(0.6)
+  playReveal()
 }
 
 function driveCurve(amount: number): Float32Array<ArrayBuffer> {

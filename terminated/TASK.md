@@ -36,3 +36,18 @@ Pedido del usuario: acortar Terminated. Ahora el bucle muestra foto y nombre en 
 - Tests 6/6 y build (19 módulos): **aprobados**.
 - Navegador integrado (silenciado): la X se dibuja sola; durante la transición conviven el expediente que sale y el que entra, y el que sale se desmonta al terminar. Se confirmó que el cue de eliminación crea la fuente de ruido.
 - **No ejecutado:** escuchar el sonido nuevo y ver la fluidez del slide en Chrome real (el panel integrado no anima de forma continua).
+
+## Ficha creepy y foto opcional (2026-10-26)
+
+- Pedido del usuario: la foto pasa a ser opcional; la ficha debe ser más grande, con una foto más chica y filtros creepy (ruido, baja calidad, pixelada); luego el título DEVELOPER y el nombre, con adornos parecidos a los actuales; y en la ficha mucho texto glitcheado que cambie de caracteres y de colores sin parar.
+- Implementado: `CreepyPhoto` (canvas de baja resolución con posterizado y ruido, grano, bandas, etiqueta CAM y silueta si no hay foto), `GlitchText` (32 líneas con mutación continua y curación parcial), ficha a pantalla completa, botón QUITAR FOTO, y textos del formulario actualizados.
+- Tests 6/6 y build (21 módulos): **aprobados**. Cero referencias prohibidas en `terminated/`.
+- Navegador integrado (silenciado), un developer con foto y otro sin foto: PLAY se habilita sin fotos; la foto se ve pixelada y la silueta funciona; el texto cambia entre lecturas; la X y el sello se ven en terminated. Probado a 1600×900, 1080×1920 y 390×844, sin scroll horizontal.
+- **No ejecutado:** fluidez de las animaciones y audio en Chrome real.
+
+## Banner ELIMINADO (2026-10-26)
+
+- Pedido del usuario: usar ELIMINADO en español, como banner recto de lado a lado con animación de entrada; el texto glitcheado debe cubrir todo el ancho; la foto, con un pixelado intermedio.
+- Implementado: banner rojo a todo el ancho con franjas en los extremos, que entra con un barrido y luego revela la palabra. El estado ahora dice ELIMINADO. Las líneas se rellenan hasta cubrir el ancho. La foto pasó de 44×55 a 88×110 px, con 10 niveles y menos ruido. El tono rojo de la foto eliminada quedó corregido.
+- Build: **aprobado** (21 módulos). Navegador integrado (silenciado): banner, texto a todo el ancho y foto revisados a 1600×900 y 1080×1920.
+- **No ejecutado:** fluidez de la animación del banner en Chrome real.

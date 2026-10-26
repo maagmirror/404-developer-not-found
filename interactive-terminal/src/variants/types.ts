@@ -14,7 +14,7 @@ export interface FinalRequest {
 export interface Identity {
   /** Recognized visitor (seeded or remembered). */
   visitor?: Visitor
-  /** Best known name: the visitor's, or what was typed and submitted. Absent when interrupted. */
+  /** Best known name: the visitor's, or what was typed and submitted. */
   name?: string
 }
 
@@ -27,15 +27,14 @@ export type VariantId =
   | 'anticipado'
   | 'jumpscare'
   | 'cuenta'
-  | 'emergencia'
   | 'facial'
   | 'captcha'
   | 'sobrevive'
 
 /**
  * How a variant takes over the "¿QUIÉN ERES?" input:
- * - recognize: lets the visitor type until the name is recognized (or Enter).
  * - interrupt: cuts the typing after a few letters.
+ * - recognize: lets the visitor type until the name is recognized (or Enter).
  * - submit: lets the visitor finish and press Enter.
  */
 export type Trigger = 'recognize' | 'interrupt' | 'submit'

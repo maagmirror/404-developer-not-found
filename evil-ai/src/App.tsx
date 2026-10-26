@@ -4,29 +4,32 @@ import { useShowClock } from './clock'
 import { CodeField } from './components/CodeField'
 import { OperatorPanel } from './components/OperatorPanel'
 import { VideoInterlude, type ClipStatus } from './components/VideoInterlude'
-import { faceTotalMs, timing } from './config'
-import { captions } from './data/captions'
+import { timing } from './config'
+import { playbackNames } from './data/captions'
 import { usingPlaceholders, videos } from './data/videos'
-import { chooseFaceLayout, type FaceLayout } from './domain/face'
+import {
+  EVENT_KINDS,
+  EVENT_LABELS,
+  appearanceEnd,
+  planFaceEvent,
+  rushAt,
+  rushDuration,
+  type Appearance,
+  type EventKind,
+  type FaceEventKind,
+} from './domain/events'
 import type { VideoEntry } from './domain/manifest'
 import { createSeededRandom, pickFresh } from './domain/random'
-import {
-  createMemory,
-  planNextEvent,
-  recordStart,
-  recordVideoEnd,
-  videoTimeoutMs,
-  type EventKind,
-  type PlannedEvent,
-} from './domain/scheduler'
-import type { ActiveFace } from './field/FieldEngine'
+import { createMemory, planNextEvent, recordStart, videoTimeoutMs, type PlannedEvent } from './domain/scheduler'
+import type { ActiveFace, Motion } from './field/FieldEngine'
 
 type Stage =
-  | { kind: 'ambient' }
-  | { kind: 'face'; startedAt: number; layout: FaceLayout; caption: string; captionOn: boolean }
-  | { kind: 'glitch-in'; video: VideoEntry; until: number }
-  | { kind: 'video'; video: VideoEntry; startedAt: number; timeoutMs: number }
-  | { kind: 'glitch-out'; video: VideoEntry; until: number }
+  | { kind: 'idle' }
+  | { kind: 'face'; event: FaceEventKind; startedAt: number; appearances: Appearance[]; endsAt: number }
+  | { kind: 'rush'; startedAt: number; endsAt: number }
+  | { kind: 'glitch-in'; video: VideoEntry; headline: string; until: number }
+  | { kind: 'video'; video: VideoEntry; headline: string; startedAt: number; timeoutMs: number }
+  | { kind: 'glitch-out'; video: VideoEntry; headline: string; until: number }
 
 type Statuses = Record<string, { status: ClipStatus; durationMs?: number }>
 type Audio = ReturnType<typeof useAmbientAudio>
@@ -38,15 +41,10 @@ const safeParam = Number(params.get('safe'))
 const safeInset = Number.isFinite(safeParam) && safeParam > 0 ? Math.min(0.3, safeParam) : 0.05
 const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 const newSeed = () => (seedFixed ? urlSeed : Math.floor(Math.random() * 1e6))
-// The first face comes soon after boot so whoever turns the monitor on sees the system work.
-const FIRST_FACE_AT = 8000
 const HUD_CORNER_MS = 5 * 60 * 1000
+const STILL: Motion = { speed: null, glitch: 0 }
 
-const schedulerConfig = {
-  ambientGapMs: timing.ambientGapMs,
-  videoChance: timing.videoChance,
-  videoMinIntervalMs: timing.videoMinIntervalMs,
-}
+const schedulerConfig = { ambientGapMs: timing.ambientGapMs }
 
 const isTyping = () => document.activeElement instanceof HTMLInputElement && document.activeElement.type !== 'range'
 
@@ -74,51 +72,80 @@ function Show({ seed, paused, setPaused, stable, setStable, audio, panelOpen, se
     field: createSeededRandom(seed ^ 0x5f3759df),
     face: createSeededRandom(seed + 404),
   }))
-  const [stage, setStage] = useState<Stage>({ kind: 'ambient' })
-  const [plan, setPlan] = useState<PlannedEvent | null>({ kind: 'face', startAt: FIRST_FACE_AT })
+  const [initial] = useState(() => {
+    const { event, memory } = planNextEvent(createMemory(), 0, videos, random.schedule, schedulerConfig)
+    return { event: { ...event, startAt: timing.firstEventMs }, memory }
+  })
+  const [stage, setStage] = useState<Stage>({ kind: 'idle' })
+  const [plan, setPlan] = useState<PlannedEvent | null>(initial.event)
   const [preloadId, setPreloadId] = useState<string | null>(null)
+  const [blip, setBlip] = useState(false)
   const [hudCorner, setHudCorner] = useState(0)
   const [, setRefresh] = useState(0)
   const stageRef = useRef<Stage>(stage)
   const planRef = useRef<PlannedEvent | null>(plan)
   const preloadRef = useRef<string | null>(null)
-  const memoryRef = useRef(createMemory())
+  const blipRef = useRef(false)
+  const memoryRef = useRef(initial.memory)
   const faceRef = useRef<ActiveFace | null>(null)
-  const captionRef = useRef<string | undefined>(undefined)
+  const motionRef = useRef<Motion>(STILL)
+  const faceKeyRef = useRef(0)
+  const headlineRef = useRef<string | undefined>(undefined)
   const durationsRef = useRef<Record<string, number>>({})
 
   const go = (next: Stage) => { stageRef.current = next; setStage(next) }
   const setPlanned = (next: PlannedEvent | null) => { planRef.current = next; setPlan(next) }
   const preload = (id: string | null) => { preloadRef.current = id; setPreloadId(id) }
+  const setGlitch = (on: boolean) => {
+    if (on === blipRef.current) return
+    blipRef.current = on
+    setBlip(on)
+    if (on) audio.cue('glitch')
+  }
 
-  const toAmbient = (now: number) => {
+  const planNext = (now: number) => {
+    const { event, memory } = planNextEvent(memoryRef.current, now, videos, random.schedule, schedulerConfig)
+    memoryRef.current = memory
+    setPlanned(event)
+  }
+
+  const toIdle = (now: number, replan = true) => {
     faceRef.current = null
-    go({ kind: 'ambient' })
-    if (!planRef.current) setPlanned(planNextEvent(memoryRef.current, now, videos, random.schedule, schedulerConfig))
+    motionRef.current = STILL
+    setGlitch(false)
+    go({ kind: 'idle' })
+    if (replan && !planRef.current) planNext(now)
   }
 
   const startEvent = (event: PlannedEvent, now: number) => {
     setPlanned(null)
-    const video = event.kind === 'video' ? videos.find(({ id }) => id === event.videoId) : undefined
-    memoryRef.current = recordStart(memoryRef.current, video ? event : { kind: 'face', startAt: event.startAt })
-    if (video) {
+    memoryRef.current = recordStart(memoryRef.current, event)
+    if (event.kind === 'video') {
+      const video = videos.find(({ id }) => id === event.videoId) ?? videos[0]
+      const name = pickFresh(playbackNames, headlineRef.current, random.face)
+      headlineRef.current = name
+      const headline = `REPRODUCIENDO ${name}:`
       preload(video.id)
-      go({ kind: 'glitch-in', video, until: now + timing.glitchMs })
+      go({ kind: 'glitch-in', video, headline, until: now + timing.glitchMs })
       audio.cue('glitch')
       return
     }
-    const layout = chooseFaceLayout(random.face, window.innerWidth, window.innerHeight, safeInset)
-    const caption = pickFresh(captions, captionRef.current, random.face)
-    captionRef.current = caption
-    faceRef.current = { startedAt: now, layout }
-    go({ kind: 'face', startedAt: now, layout, caption, captionOn: false })
-    audio.cue('face')
+    if (event.kind === 'rush') {
+      go({ kind: 'rush', startedAt: now, endsAt: now + rushDuration })
+      audio.cue('rush', rushDuration / 1000)
+      return
+    }
+    const appearances = planFaceEvent(event.kind, random.face, window.innerWidth, window.innerHeight, safeInset)
+    const endsAt = now + Math.max(...appearances.map(appearanceEnd))
+    faceKeyRef.current += 100
+    go({ kind: 'face', event: event.kind, startedAt: now, appearances, endsAt })
+    audio.cue('face', (endsAt - now) / 1000)
   }
 
   const endVideo = (now: number) => {
     const current = stageRef.current
     if (current.kind !== 'video' && current.kind !== 'glitch-in') return
-    go({ kind: 'glitch-out', video: current.video, until: now + timing.glitchMs })
+    go({ kind: 'glitch-out', video: current.video, headline: current.headline, until: now + timing.glitchMs })
     audio.cue('glitch')
   }
 
@@ -127,56 +154,69 @@ function Show({ seed, paused, setPaused, stable, setStable, audio, panelOpen, se
     const corner = Math.floor(now / HUD_CORNER_MS) % 4
     if (corner !== hudCorner) setHudCorner(corner)
 
-    if (current.kind === 'ambient') {
+    if (current.kind === 'idle') {
       const next = planRef.current
-      if (!next) return toAmbient(now)
+      if (!next) return planNext(now)
       if (next.kind === 'video' && next.videoId && next.startAt - now <= timing.preloadLeadMs && preloadRef.current !== next.videoId) preload(next.videoId)
       if (now >= next.startAt) startEvent(next, now)
     } else if (current.kind === 'face') {
+      if (now >= current.endsAt) return toIdle(now)
       const elapsed = now - current.startedAt
-      if (elapsed >= faceTotalMs) return toAmbient(now)
-      const { convergeMs, holdMs } = timing.face
-      const captionOn = elapsed >= convergeMs * 0.85 && elapsed < convergeMs + holdMs
-      if (captionOn !== current.captionOn) go({ ...current, captionOn })
+      const index = current.appearances.findIndex((appearance) => elapsed >= appearance.at && elapsed < appearanceEnd(appearance))
+      const appearance = current.appearances[index]
+      faceRef.current = appearance
+        ? { key: faceKeyRef.current + index, startedAt: current.startedAt + appearance.at, ...appearance }
+        : null
+      // A short glitch each time the face snaps in and each time it starts to dissolve.
+      const glitching = current.appearances.some(({ at, timing: face }) => {
+        const dissolveAt = at + face.convergeMs + face.holdMs
+        return (elapsed >= at && elapsed < at + timing.blipMs) || (elapsed >= dissolveAt && elapsed < dissolveAt + timing.blipMs)
+      })
+      motionRef.current = glitching ? { speed: null, glitch: 0.6 } : STILL
+      setGlitch(glitching)
+    } else if (current.kind === 'rush') {
+      if (now >= current.endsAt) return toIdle(now)
+      const { speed, glitch, cut } = rushAt(now - current.startedAt)
+      motionRef.current = { speed, glitch }
+      setGlitch(cut)
     } else if (current.kind === 'glitch-in') {
       if (now < current.until) return
-      const { video } = current
+      const { video, headline } = current
       const timeoutMs = video.src === null
         ? video.durationMs ?? timing.placeholderMs
         : videoTimeoutMs({ durationMs: video.durationMs ?? durationsRef.current[video.id] ?? null }, timing.videoMaxMs, timing.videoTimeoutMarginMs)
-      go({ kind: 'video', video, startedAt: now, timeoutMs })
+      go({ kind: 'video', video, headline, startedAt: now, timeoutMs })
     } else if (current.kind === 'video') {
       if (now - current.startedAt >= current.timeoutMs) endVideo(now)
     } else if (now >= current.until) {
-      memoryRef.current = recordVideoEnd(memoryRef.current, now)
       preload(null)
-      toAmbient(now)
+      toIdle(now)
     }
   }
   const tickRef = useRef(tick)
   tickRef.current = tick
   useEffect(() => clock.subscribe((now) => tickRef.current(now)), [clock])
 
-  // Operator: cut whatever is on screen and run a specific kind of event next.
+  // Operator: cut whatever is on screen and run a given event, or skip ahead with 'next'.
   const force = (kind: EventKind | 'next', videoId?: string) => {
     const now = clock.now
     const current = stageRef.current
-    let event: PlannedEvent
-    if (kind === 'next') event = planRef.current ? { ...planRef.current, startAt: now } : planNextEvent(memoryRef.current, now, videos, random.schedule, schedulerConfig, 'face')
-    else if (kind === 'video' && videoId) event = { kind: 'video', startAt: now, videoId }
-    else event = planNextEvent(memoryRef.current, now, videos, random.schedule, schedulerConfig, kind)
+    if (kind === 'next') {
+      if (current.kind === 'video' || current.kind === 'glitch-in') endVideo(now)
+      else if (current.kind === 'face' || current.kind === 'rush') toIdle(now)
+      else if (planRef.current) setPlanned({ ...planRef.current, startAt: now })
+      return
+    }
+    const event: PlannedEvent = kind === 'video' && videoId
+      ? { kind, startAt: now, videoId }
+      : planNextEvent(memoryRef.current, now, videos, random.schedule, schedulerConfig, kind).event
     if (current.kind === 'video' || current.kind === 'glitch-in') {
-      if (kind === 'next') { setPlanned(null); endVideo(now); return }
       setPlanned({ ...event, startAt: now + timing.glitchMs })
       endVideo(now)
       return
     }
-    if (current.kind === 'face') {
-      if (kind === 'next') { setPlanned(null); toAmbient(now); return }
-      faceRef.current = null
-      go({ kind: 'ambient' })
-    }
     if (current.kind === 'glitch-out') { setPlanned({ ...event, startAt: current.until }); return }
+    if (current.kind !== 'idle') toIdle(now, false)
     setPlanned(event)
     if (event.kind === 'video' && event.videoId) preload(event.videoId)
   }
@@ -193,11 +233,11 @@ function Show({ seed, paused, setPaused, stable, setStable, audio, panelOpen, se
       if (event.shiftKey && event.key.toLowerCase() === 'o') { event.preventDefault(); setPanelOpen((value) => !value); return }
       if (!panelOpen || isTyping() || event.ctrlKey || event.metaKey || event.altKey) return
       const key = event.key.toLowerCase()
+      const eventIndex = Number(key) - 1
       if (key === 'escape') setPanelOpen(false)
       else if (event.code === 'Space' || key === 'p') { event.preventDefault(); setPaused((value) => !value) }
+      else if (eventIndex >= 0 && eventIndex < EVENT_KINDS.length) forceRef.current(EVENT_KINDS[eventIndex])
       else if (key === 'n') forceRef.current('next')
-      else if (key === 'c') forceRef.current('face')
-      else if (key === 'v') forceRef.current('video')
       else if (key === 'r') onRestart()
       else if (key === 's') setStable((value) => !value)
       else if (key === 'm') audio.toggleMute()
@@ -221,15 +261,22 @@ function Show({ seed, paused, setPaused, stable, setStable, audio, panelOpen, se
   const clip = stage.kind === 'glitch-in' || stage.kind === 'video' || stage.kind === 'glitch-out'
     ? stage.video
     : preloadId ? videos.find(({ id }) => id === preloadId) : undefined
+  const headline = stage.kind === 'glitch-in' || stage.kind === 'video' || stage.kind === 'glitch-out' ? stage.headline : ''
 
-  const stageLabel = stage.kind === 'ambient' ? 'CAMPO' : stage.kind === 'face' ? 'ROSTRO' : stage.kind === 'video' ? `VIDEO // ${stage.video.label}` : 'CORTE'
+  const stageLabel = stage.kind === 'idle' ? 'IDLE'
+    : stage.kind === 'face' ? EVENT_LABELS[stage.event]
+    : stage.kind === 'rush' ? EVENT_LABELS.rush
+    : stage.kind === 'video' ? `VIDEO // ${stage.video.label}` : 'CORTE'
   const nextLabel = plan
-    ? `${plan.kind === 'face' ? 'ROSTRO' : `VIDEO // ${videos.find(({ id }) => id === plan.videoId)?.label ?? '?'}`} en ${Math.max(0, Math.ceil((plan.startAt - clock.now) / 1000))} s`
+    ? `${EVENT_LABELS[plan.kind]}${plan.kind === 'video' ? ` // ${videos.find(({ id }) => id === plan.videoId)?.label ?? '?'}` : ''} en ${Math.max(0, Math.ceil((plan.startAt - clock.now) / 1000))} s`
     : 'EN CURSO'
 
   return (
-    <main className={`show stage-${stage.kind}${cutting ? ' is-cutting' : ''}${stable ? ' is-stable' : ''}${paused ? ' is-paused' : ''}${panelOpen ? ' has-panel' : ''}`} style={{ '--safe': `${safeInset * 100}vmin` } as React.CSSProperties}>
-      <CodeField clock={clock} random={random.field} faceRef={faceRef} stable={stable} />
+    <main
+      className={`show stage-${stage.kind}${cutting ? ' is-cutting' : ''}${blip ? ' is-blip' : ''}${stable ? ' is-stable' : ''}${paused ? ' is-paused' : ''}${panelOpen ? ' has-panel' : ''}`}
+      style={{ '--safe': `${safeInset * 100}vmin` } as React.CSSProperties}
+    >
+      <CodeField clock={clock} random={random.field} faceRef={faceRef} motionRef={motionRef} stable={stable} />
       <div className="crt" aria-hidden="true" />
 
       <p className={`hud hud-${hudCorner}`} aria-hidden="true">
@@ -237,19 +284,11 @@ function Show({ seed, paused, setPaused, stable, setStable, audio, panelOpen, se
         <span>NODO PRINCIPAL // SUPERVISIÓN HUMANA: 0</span>
       </p>
 
-      {stage.kind === 'face' && stage.captionOn && (
-        <p
-          className="face-caption"
-          style={{ left: stage.layout.cx, top: stage.layout.cy + stage.layout.size * 0.56, fontSize: Math.max(16, stage.layout.size * 0.05) }}
-        >
-          <span style={{ '--chars': stage.caption.length } as React.CSSProperties}>{stage.caption}</span>
-        </p>
-      )}
-
       {clip && (
         <VideoInterlude
           key={clip.id}
           video={clip}
+          headline={headline}
           visible={clipOnScreen}
           active={stage.kind === 'video'}
           paused={paused}
@@ -260,9 +299,7 @@ function Show({ seed, paused, setPaused, stable, setStable, audio, panelOpen, se
         />
       )}
 
-      {cutting && <div className="signal-cut" aria-hidden="true"><i /><i /><i /><i /></div>}
-
-      <p className="sr-only" aria-live="polite">{stage.kind === 'face' && stage.captionOn ? stage.caption : ''}</p>
+      {(cutting || blip) && <div className="signal-cut" aria-hidden="true"><i /><i /><i /><i /></div>}
 
       {panelOpen && (
         <OperatorPanel
@@ -285,7 +322,7 @@ function Show({ seed, paused, setPaused, stable, setStable, audio, panelOpen, se
             close: () => setPanelOpen(false),
             togglePause: () => setPaused((value) => !value),
             nextEvent: () => force('next'),
-            faceNow: () => force('face'),
+            runEvent: (kind) => force(kind),
             videoNow: (id) => force('video', id),
             restart: onRestart,
             toggleStable: () => setStable((value) => !value),

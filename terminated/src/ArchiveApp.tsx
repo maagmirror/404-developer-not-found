@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useArchiveAudio } from './audio/useArchiveAudio'
+import { CreepyPhoto } from './components/CreepyPhoto'
+import { GlitchText } from './components/GlitchText'
 import {
   advanceSimulation,
   createSimulation,
@@ -23,7 +25,8 @@ type AudioControls = ReturnType<typeof useArchiveAudio>
 
 let rosterId = 1
 const newEntry = (): RosterEntry => ({ id: `subject-${rosterId++}`, name: '', photo: null, photoUrl: '', photoError: '' })
-const entryIsValid = (entry: RosterEntry) => entry.name.trim().length >= 2 && Boolean(entry.photoUrl) && !entry.photoError
+// The photo is optional; an invalid file still blocks PLAY until it is replaced or cleared.
+const entryIsValid = (entry: RosterEntry) => entry.name.trim().length >= 2 && !entry.photoError
 const isTyping = () => document.activeElement instanceof HTMLInputElement && document.activeElement.type !== 'range'
 const pad = (value: number, size = 2) => value.toString().padStart(size, '0')
 
@@ -38,7 +41,7 @@ function RosterSetup({ roster, setRoster, onPlay, muted }: {
     setRoster((current) => current.map((entry) => {
       if (entry.id !== id) return entry
       if (entry.photoUrl) URL.revokeObjectURL(entry.photoUrl)
-      if (!file) return { ...entry, photo: null, photoUrl: '', photoError: 'Seleccioná una foto.' }
+      if (!file) return { ...entry, photo: null, photoUrl: '', photoError: '' }
       if (!ACCEPTED_PHOTO_TYPES.has(file.type)) return { ...entry, photo: null, photoUrl: '', photoError: 'Formato no admitido. Usá JPG, PNG o WebP.' }
       if (file.size > MAX_PHOTO_BYTES) return { ...entry, photo: null, photoUrl: '', photoError: 'La foto supera el límite de 5 MB.' }
       return { ...entry, photo: file, photoUrl: URL.createObjectURL(file), photoError: '' }
@@ -66,21 +69,22 @@ function RosterSetup({ roster, setRoster, onPlay, muted }: {
 
       <form className="roster-form" onSubmit={(event) => { event.preventDefault(); if (valid) onPlay() }} noValidate>
         <div className="form-heading"><div><span className="section-index">01</span><h2>Índice de sujetos</h2></div><span className="roster-count">{pad(roster.length)} EXPEDIENTES ABIERTOS</span></div>
-        <p className="privacy-note">CUSTODIA LOCAL // Las fotografías viven sólo en la memoria de esta pestaña. No se guardan ni se transmiten. JPG, PNG o WebP; máximo 5 MB.</p>
+        <p className="privacy-note">CUSTODIA LOCAL // La fotografía es opcional y vive sólo en la memoria de esta pestaña. No se guarda ni se transmite. JPG, PNG o WebP; máximo 5 MB.</p>
         <div className="roster-list">
           {roster.map((entry, index) => {
             const nameError = entry.name.trim().length < 2
             return (
               <fieldset className="roster-card" key={entry.id}>
                 <legend>DOSSIER / {pad(index + 1)}</legend>
-                <div className="photo-slot">{entry.photoUrl ? <img src={entry.photoUrl} alt={`Vista previa de ${entry.name.trim() || `sujeto ${index + 1}`}`} /> : <span aria-hidden="true">IMAGEN<br />REQUERIDA</span>}<b aria-hidden="true">ID-{entry.id.replace('subject-', '').padStart(3, '0')}</b></div>
+                <div className="photo-slot">{entry.photoUrl ? <img src={entry.photoUrl} alt={`Vista previa de ${entry.name.trim() || `sujeto ${index + 1}`}`} /> : <span aria-hidden="true">SIN<br />IMAGEN</span>}<b aria-hidden="true">ID-{entry.id.replace('subject-', '').padStart(3, '0')}</b></div>
                 <div className="entry-fields">
                   <label htmlFor={`name-${entry.id}`}>Identidad / nombre</label>
                   <input id={`name-${entry.id}`} value={entry.name} onChange={(event) => setRoster((current) => current.map((item) => item.id === entry.id ? { ...item, name: event.target.value } : item))} aria-invalid={nameError} placeholder="NOMBRE DEL DESARROLLADOR" autoComplete="off" maxLength={60} />
                   {nameError && <span className="field-error">{entry.name.length === 0 ? 'Nombre obligatorio.' : 'Ingresá al menos 2 caracteres.'}</span>}
-                  <label className="file-label" htmlFor={`photo-${entry.id}`}>ADJUNTAR RETRATO</label>
+                  <label className="file-label" htmlFor={`photo-${entry.id}`}>ADJUNTAR RETRATO (OPCIONAL)</label>
                   <input className="file-input" id={`photo-${entry.id}`} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => updatePhoto(entry.id, event.target.files?.[0])} aria-describedby={`file-state-${entry.id}`} />
-                  <span id={`file-state-${entry.id}`} className={entry.photoError ? 'field-error' : 'file-state'}>{entry.photoError || entry.photo?.name || 'Fotografía obligatoria'}</span>
+                  <span id={`file-state-${entry.id}`} className={entry.photoError ? 'field-error' : 'file-state'}>{entry.photoError || entry.photo?.name || 'Sin foto: se usará una silueta'}</span>
+                  {(entry.photoUrl || entry.photoError) && <button className="file-clear" type="button" onClick={() => { updatePhoto(entry.id); const input = document.getElementById(`photo-${entry.id}`) as HTMLInputElement | null; if (input) input.value = '' }}>QUITAR FOTO</button>}
                 </div>
                 <div className="dossier-meta" aria-hidden="true"><span>ESTADO</span><b className={entryIsValid(entry) ? 'is-valid' : ''}>{entryIsValid(entry) ? 'VERIFICADO' : 'INCOMPLETO'}</b><span>CLASE</span><b>CAPDEV</b></div>
                 <button className="remove-button" type="button" onClick={() => removeEntry(entry.id)} disabled={roster.length === 1} aria-label={`Quitar a ${entry.name.trim() || `sujeto ${index + 1}`}`}>QUITAR</button>
@@ -92,7 +96,7 @@ function RosterSetup({ roster, setRoster, onPlay, muted }: {
           <button className="secondary-button" type="button" onClick={() => setRoster((current) => [...current, newEntry()])}>+ ABRIR DOSSIER</button>
           <div className="play-cluster"><small>PLAY habilita el paisaje sonoro local.</small><button className="play-button" type="submit" disabled={!valid}>ABRIR ARCHIVO / PLAY <span aria-hidden="true">▶</span></button></div>
         </div>
-        {!valid && <p className="form-status" role="status">Completá nombre y fotografía en cada expediente.</p>}
+        {!valid && <p className="form-status" role="status">Completá el nombre en cada expediente y corregí las fotos inválidas.</p>}
       </form>
     </main>
   )
@@ -107,32 +111,30 @@ function DossierView({ state, leaving = false, onLeft }: { state: SimulationStat
   return (
     <section
       className={`dossier phase-${phase}${leaving ? ' is-leaving' : ''}`}
-      aria-label={`${current.name}${dead ? ': terminated' : ''}`}
+      aria-label={`${current.name}${dead ? ': eliminado' : ''}`}
       aria-hidden={leaving || undefined}
       onAnimationEnd={leaving ? (event) => { if (event.target === event.currentTarget) onLeft?.() } : undefined}
     >
       <i className="dossier-corner tl" aria-hidden="true" /><i className="dossier-corner tr" aria-hidden="true" /><i className="dossier-corner bl" aria-hidden="true" /><i className="dossier-corner br" aria-hidden="true" />
-      <div className="dossier-photo">
-        <img src={current.photoUrl} alt={`Fotografía de ${current.name}`} />
-        <span className="dossier-photo-tag" aria-hidden="true">REF // {current.id.replace('subject-', 'ID-').toUpperCase()}</span>
-        {dead && (
-          <svg className="dossier-crossout" viewBox="0 0 100 125" preserveAspectRatio="none" aria-hidden="true">
-            <path pathLength={1} d="M6 10 L94 115" /><path pathLength={1} d="M94 10 L6 115" />
-          </svg>
-        )}
-      </div>
-      <div className="dossier-copy">
-        <p className="dossier-kicker" aria-hidden="true">ERR_404 // CAPDEV NOT FOUND // EXPEDIENTE {state.count.toString().padStart(3, '0')}</p>
-        <p className="dossier-title">DEVELOPER</p>
-        <h1 className="dossier-name">{current.name}</h1>
-        <dl className="dossier-data" aria-hidden="true">
-          <div><dt>CLASE</dt><dd>CAPDEV</dd></div>
-          <div><dt>RONDA</dt><dd>{state.round.toString().padStart(2, '0')}</dd></div>
-          <div><dt>ESTADO</dt><dd className={dead ? 'is-dead' : ''}>{dead ? 'TERMINATED' : 'ACTIVO'}</dd></div>
-        </dl>
-        <div className="dossier-barcode" aria-hidden="true">{barcode(current.name + current.id).map((width, index) => <i key={index} style={{ width: `${width * 2}px` }} />)}</div>
-      </div>
-      {dead && <p className="terminated-stamp" aria-hidden="true">TERMINATED</p>}
+      <header className="dossier-head">
+        <CreepyPhoto url={current.photoUrl} name={current.name} dead={dead} tag={`REF // ${current.id.replace('subject-', 'ID-').toUpperCase()}`} />
+        <div className="dossier-copy">
+          <p className="dossier-kicker" aria-hidden="true">ERR_404 // CAPDEV NOT FOUND // EXPEDIENTE {state.count.toString().padStart(3, '0')}</p>
+          <p className="dossier-title">DEVELOPER</p>
+          <h1 className="dossier-name">{current.name}</h1>
+          <dl className="dossier-data" aria-hidden="true">
+            <div><dt>CLASE</dt><dd>CAPDEV</dd></div>
+            <div><dt>RONDA</dt><dd>{state.round.toString().padStart(2, '0')}</dd></div>
+            <div><dt>ESTADO</dt><dd className={dead ? 'is-dead' : ''}>{dead ? 'ELIMINADO' : 'ACTIVO'}</dd></div>
+          </dl>
+        </div>
+      </header>
+      <GlitchText name={current.name} />
+      <footer className="dossier-foot" aria-hidden="true">
+        <div className="dossier-barcode">{barcode(current.name + current.id).map((width, index) => <i key={index} style={{ width: `${width * 2}px` }} />)}</div>
+        <span>INTEGRIDAD DEL ARCHIVO: {dead ? '0' : '13'}% // CLASIFICADO // NO DISTRIBUIR</span>
+      </footer>
+      {dead && <div className="eliminated-banner" aria-hidden="true"><span>ELIMINADO</span></div>}
     </section>
   )
 }
@@ -188,7 +190,7 @@ function Simulation({ developers, onConfig, audio }: { developers: Developer[]; 
   return (
     <main className={`simulation phase-${state.phase}${paused ? ' is-paused' : ''}`}>
       <div className="noise" aria-hidden="true" /><div className="scanline" aria-hidden="true" />
-      <p className="sr-only" aria-live="polite">{state.phase === 'terminated' ? `${state.current.name}: terminated.` : state.phase === 'profile' ? `Developer: ${state.current.name}.` : ''}</p>
+      <p className="sr-only" aria-live="polite">{state.phase === 'terminated' ? `${state.current.name}: eliminado.` : state.phase === 'profile' ? `Developer: ${state.current.name}.` : ''}</p>
       <div className="stage">
         {leaving && <DossierView key={leaving.key} state={leaving.state} leaving onLeft={() => setLeaving(null)} />}
         <DossierView key={`${timerEpoch}-${state.count}`} state={state} />

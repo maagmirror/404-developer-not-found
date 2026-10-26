@@ -93,7 +93,7 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
 .stage { position: relative; z-index: 5; display: grid; place-items: center; grid-template-areas: "slot"; min-height: 0; overflow: hidden; padding: clamp(.8rem, 3vh, 2.5rem) clamp(.8rem, 4vw, 4rem); }
 
 /* One template for all three steps. */
-.dossier { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: clamp(1.5rem, 4.5vw, 5rem); width: min(1560px, 100%); max-height: 100%; padding: clamp(1rem, 3vw, 3rem); border: 1px solid var(--line); background: linear-gradient(120deg, rgb(18 18 17 / 92%), rgb(6 6 6 / 92%)); animation: slide-in .75s cubic-bezier(.16, .84, .3, 1) both; grid-area: slot; }
+.dossier { position: relative; display: flex; flex-direction: column; gap: clamp(.8rem, 2vh, 1.6rem); width: min(1600px, 100%); height: 100%; padding: clamp(1rem, 2.6vw, 2.6rem); border: 1px solid var(--line); background: linear-gradient(120deg, rgb(18 18 17 / 94%), rgb(6 6 6 / 94%)); animation: slide-in .75s cubic-bezier(.16, .84, .3, 1) both; grid-area: slot; overflow: hidden; }
 /* Next developer: the terminated dossier slides out left while the new one slides in from the right. */
 .dossier.phase-terminated.is-leaving { animation: slide-out .75s cubic-bezier(.7, 0, .84, 0) both; pointer-events: none; }
 .dossier-corner { position: absolute; width: clamp(18px, 2.4vw, 34px); height: clamp(18px, 2.4vw, 34px); border: 0 solid var(--red); }
@@ -101,14 +101,29 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
 .dossier-corner.tr { right: -1px; top: -1px; border-width: 3px 3px 0 0; }
 .dossier-corner.bl { left: -1px; bottom: -1px; border-width: 0 0 3px 3px; }
 .dossier-corner.br { right: -1px; bottom: -1px; border-width: 0 3px 3px 0; }
-.dossier-photo { position: relative; height: min(70vh, 820px); aspect-ratio: 4/5; overflow: hidden; border: 1px solid var(--line-strong); background: #0b0b0b; }
-.dossier-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 60%, rgb(210 31 50 / 22%)), repeating-linear-gradient(0deg, transparent 0 3px, rgb(0 0 0 / 22%) 3px 4px); }
-.dossier-photo img { width: 100%; height: 100%; object-fit: cover; filter: var(--photo-filter); animation: photo-develop 1.4s ease-out both; }
-.dossier-photo-tag { position: absolute; z-index: 2; left: 0; top: 1rem; padding: .3rem .7rem; background: var(--red); color: #fff; font-size: clamp(.55rem, .8vw, .72rem); letter-spacing: .18em; }
-.dossier-copy { display: grid; gap: clamp(.8rem, 2.4vh, 1.8rem); min-width: 0; }
+.dossier-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: end; gap: clamp(1rem, 3vw, 3rem); }
+/* Small, pixelated, noisy photo: low-quality surveillance still. */
+.creepy-photo { position: relative; height: clamp(150px, 31vh, 340px); aspect-ratio: 4/5; overflow: hidden; border: 1px solid var(--line-strong); background: #0b0b0b; }
+.creepy-photo canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; filter: contrast(1.25) brightness(.85); animation: creepy-shake 4.2s steps(1) infinite; }
+.creepy-photo::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 50%, rgb(210 31 50 / 28%)), repeating-linear-gradient(0deg, transparent 0 2px, rgb(0 0 0 / 35%) 2px 3px); mix-blend-mode: multiply; }
+.creepy-grain { position: absolute; inset: -40%; pointer-events: none; opacity: .32; mix-blend-mode: screen; background-image: repeating-radial-gradient(circle at 21% 37%, #fff 0 1px, transparent 1px 4px), repeating-radial-gradient(circle at 67% 71%, #fff 0 1px, transparent 1px 5px); background-size: 9px 11px, 13px 7px; animation: grain .3s steps(3) infinite; }
+.creepy-bands { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(transparent 0 46%, rgb(255 255 255 / 9%) 48%, rgb(210 31 50 / 14%) 50%, transparent 54%); background-size: 100% 260%; animation: band-sweep 2.6s linear infinite; }
+.creepy-tag { position: absolute; z-index: 2; left: 0; top: .5rem; padding: .2rem .5rem; background: var(--red); color: #fff; font-size: clamp(.5rem, .7vw, .66rem); letter-spacing: .16em; }
+.creepy-rec { position: absolute; z-index: 2; right: .4rem; bottom: .3rem; color: var(--red-bright); font-size: clamp(.5rem, .7vw, .66rem); letter-spacing: .12em; animation: blink-rec 1.6s steps(1) infinite; }
+/* Restless corrupted record: glyphs and colours change on every tick. */
+.glitch-text { flex: 1 1 auto; min-height: 0; overflow: hidden; padding: .8rem 0; border-block: 1px dashed var(--line-strong); font-size: clamp(.6rem, 1.02vw, 1rem); line-height: 1.5; letter-spacing: .04em; white-space: nowrap; }
+.glitch-text p { margin: 0; overflow: hidden; }
+.glitch-text p:nth-child(odd) { transform: translateX(-.4ch); }
+.g-ink { color: var(--ink); }
+.g-dim { color: #66645f; }
+.g-red { color: var(--red); }
+.g-hot { color: var(--red-bright); text-shadow: 0 0 8px rgb(255 65 85 / 70%); }
+.g-inv { background: var(--red); color: #050505; }
+.dossier-foot { display: flex; justify-content: space-between; align-items: center; gap: 1rem; color: var(--muted); font-size: clamp(.5rem, .8vw, .7rem); letter-spacing: .16em; }
+.dossier-copy { display: grid; gap: clamp(.5rem, 1.6vh, 1.2rem); min-width: 0; }
 .dossier-kicker { margin: 0; color: var(--red); font-size: clamp(.58rem, .85vw, .8rem); letter-spacing: .22em; }
 .dossier-title { margin: 0; padding-bottom: .6rem; border-bottom: 2px solid var(--red); color: var(--ink-dim); font-size: clamp(1.1rem, 2.6vw, 2.6rem); letter-spacing: .55em; }
-.dossier-name { position: relative; margin: 0; font-size: clamp(2.8rem, 10vw, 13rem); line-height: .86; letter-spacing: -.045em; overflow-wrap: anywhere; }
+.dossier-name { position: relative; margin: 0; font-size: clamp(2.4rem, 7.5vw, 9.5rem); line-height: .86; letter-spacing: -.045em; overflow-wrap: anywhere; }
 .dossier-data { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 0; border: 1px solid var(--line); background: var(--line); }
 .dossier-data div { padding: .6rem .8rem; background: var(--coal); }
 .dossier-data dt { color: var(--muted); font-size: .58rem; letter-spacing: .16em; }
@@ -119,19 +134,24 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
 
 /* Step 2: flicker. At most two deep dips per run (below three flashes per second), the rest is low-amplitude jitter toward black, never toward white. */
 .dossier.phase-flicker { animation: dossier-flicker .9s linear both; }
-.dossier.phase-flicker .dossier-photo img { animation: photo-jitter .9s steps(1) both; }
+.dossier.phase-flicker .creepy-photo canvas { animation: photo-jitter .9s steps(1) both; }
 .simulation.phase-flicker .stage::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(0deg, rgb(210 31 50 / 10%) 0 2px, transparent 2px 7px); animation: band-roll .9s linear both; }
 
 /* Step 3: same template, face crossed out in red and the TERMINATED stamp. */
 .dossier.phase-terminated { animation: none; border-color: var(--red-dark); box-shadow: 0 0 80px rgb(210 31 50 / 16%); }
-.dossier.phase-terminated .dossier-photo { border-color: var(--red); }
-.dossier.phase-terminated .dossier-photo img { filter: var(--photo-dead); animation: photo-kill .5s ease-out both; }
+.dossier.phase-terminated .creepy-photo { border-color: var(--red); }
+.dossier.phase-terminated .creepy-photo canvas { filter: grayscale(1) brightness(.5) contrast(1.4) sepia(1) saturate(7) hue-rotate(-42deg); }
 .dossier-crossout { position: absolute; z-index: 1; inset: 0; width: 100%; height: 100%; fill: none; stroke: var(--red-bright); stroke-linecap: round; stroke-width: 2.6; filter: drop-shadow(0 0 6px rgb(210 31 50 / 70%)); }
 .dossier-crossout path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .35s ease-out both; }
 .dossier-crossout path:nth-child(2) { animation-delay: .12s; }
 .dossier.phase-terminated .dossier-name::after { content: ""; position: absolute; left: -2%; right: -2%; top: 48%; height: .09em; background: var(--red); transform: rotate(-2deg); animation: strike .3s ease-out .3s both; transform-origin: left; }
 .dossier.phase-terminated .dossier-title { color: var(--red); }
-.terminated-stamp { position: absolute; z-index: 3; left: 50%; top: 50%; margin: 0; padding: .1em .35em; border: clamp(4px, .6vw, 8px) solid var(--red); background: rgb(5 5 5 / 70%); color: var(--red); font-size: clamp(2.6rem, 10vw, 11rem); font-weight: 700; line-height: 1; letter-spacing: -.03em; text-shadow: 0 0 40px var(--red-dark); white-space: nowrap; transform: translate(-50%, -50%) rotate(-9deg); animation: stamp-in .45s cubic-bezier(.2, 1.6, .4, 1) .35s both; }
+/* ELIMINADO: a straight banner across the whole card; the bar wipes in, then the word resolves. */
+.eliminated-banner { position: absolute; z-index: 3; left: 0; right: 0; top: 50%; overflow: hidden; display: grid; place-items: center; padding: clamp(.4rem, 1.4vh, 1rem) 0; border-block: 2px solid #050505; outline: 1px solid var(--red-bright); background: var(--red); box-shadow: 0 0 60px rgb(210 31 50 / 45%); transform: translateY(-50%) scaleX(0); transform-origin: left center; animation: banner-wipe .38s cubic-bezier(.7, 0, .2, 1) .3s both; }
+.eliminated-banner::before, .eliminated-banner::after { content: ""; position: absolute; top: 0; bottom: 0; width: clamp(40px, 8vw, 140px); background: repeating-linear-gradient(-45deg, #050505 0 10px, transparent 10px 20px); opacity: .55; }
+.eliminated-banner::before { left: 0; }
+.eliminated-banner::after { right: 0; }
+.eliminated-banner span { color: #050505; font-size: clamp(2.4rem, 8vw, 9rem); font-weight: 700; line-height: 1; letter-spacing: .18em; padding-left: .18em; white-space: nowrap; animation: banner-word .5s cubic-bezier(.2, .8, .2, 1) .6s both; }
 
 /* Operator controls */
 .operator-controls { position: relative; z-index: 30; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: .3rem; padding: .5rem .8rem; border-top: 1px solid var(--line); background: rgb(4 4 4 / 95%); opacity: .55; transition: opacity .2s; }
@@ -149,6 +169,10 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
 @keyframes scan { from { top: -12vh; } to { top: 112vh; } }
 @keyframes title-slice { 0%, 88%, 100% { clip-path: inset(54% 0 34% 0); transform: translateX(4px); } 90% { clip-path: inset(20% 0 66% 0); transform: translateX(-6px); } 94% { clip-path: inset(70% 0 12% 0); transform: translateX(8px); } }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes grain { 0% { transform: translate(0); } 33% { transform: translate(-6%, 4%); } 66% { transform: translate(5%, -3%); } 100% { transform: translate(0); } }
+@keyframes band-sweep { from { background-position: 0 100%; } to { background-position: 0 -160%; } }
+@keyframes creepy-shake { 0%, 86%, 100% { transform: none; } 88% { transform: translateX(-6%) skewX(-4deg); } 90% { transform: translateX(4%); } 92% { transform: none; clip-path: inset(30% 0 52% 0); } 93% { clip-path: none; } }
+@keyframes blink-rec { 50% { opacity: .2; } }
 @keyframes slide-in { from { transform: translateX(110vw); } to { transform: none; } }
 @keyframes slide-out { from { transform: none; } to { transform: translateX(-110vw); } }
 @keyframes dossier-in { 0% { opacity: 0; transform: translateX(-16px); filter: blur(4px); } 60% { opacity: .8; transform: translateX(4px); filter: blur(0); } 100% { opacity: 1; transform: none; } }
@@ -171,18 +195,22 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
 @keyframes photo-kill { from { filter: grayscale(1) contrast(1.2) brightness(.78); } to { filter: grayscale(1) contrast(1.55) brightness(.36) sepia(.45) saturate(2.2) hue-rotate(-18deg); } }
 @keyframes draw { to { stroke-dashoffset: 0; } }
 @keyframes strike { from { transform: rotate(-2deg) scaleX(0); } to { transform: rotate(-2deg) scaleX(1); } }
-@keyframes stamp-in { from { opacity: 0; transform: translate(-50%, -50%) rotate(-9deg) scale(1.8); } to { opacity: 1; transform: translate(-50%, -50%) rotate(-9deg) scale(1); } }
+@keyframes banner-wipe { from { transform: translateY(-50%) scaleX(0); } to { transform: translateY(-50%) scaleX(1); } }
+@keyframes banner-word { 0% { opacity: 0; letter-spacing: .9em; clip-path: inset(0 50%); } 60% { opacity: 1; } 100% { opacity: 1; letter-spacing: .18em; clip-path: inset(0 0); } }
 
 /* ============ Layouts ============ */
 
 /* Portrait / 9:16: photo on top, name below, everything centered. */
 @media (orientation: portrait) {
-  .dossier { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: clamp(1rem, 3vh, 2.5rem); text-align: center; }
-  .dossier-photo { height: min(52vh, 112vw); }
+  .dossier-head { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; }
+  .creepy-photo { height: min(22vh, 50vw); }
+  /* Tall screens: larger glyphs for the corrupted record. */
+  .glitch-text { font-size: clamp(.62rem, 2.3vw, 1.15rem); text-align: left; }
+  .glitch-text p:nth-child(odd) { transform: none; }
   .dossier-copy { width: 100%; }
   .dossier-name { font-size: clamp(2.4rem, 12vw, 8rem); }
   .dossier-barcode { justify-content: center; }
-  .terminated-stamp { top: 34%; font-size: clamp(2.4rem, 15vw, 9rem); }
+  .eliminated-banner span { font-size: clamp(2rem, 12vw, 7rem); letter-spacing: .12em; }
 }
 
 /* Narrow screens (phones, small windows). */
@@ -197,7 +225,8 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
   .play-button, .secondary-button { justify-content: center; }
   .form-status { text-align: center; }
   .dossier { padding: 1rem .8rem; }
-  .dossier-photo { height: min(46vh, 100vw); }
+  .creepy-photo { height: min(22vh, 52vw); }
+  .glitch-text { font-size: .58rem; }
   .dossier-kicker { display: none; }
   .dossier-title { letter-spacing: .35em; }
   .operator-controls { gap: .25rem; padding: .45rem; opacity: 1; }
@@ -206,7 +235,7 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
 
 /* Short landscape windows. */
 @media (orientation: landscape) and (max-height: 620px) {
-  .dossier-photo { height: 66vh; }
+  .creepy-photo { height: 30vh; }
   .dossier-barcode { display: none; }
 }
 
@@ -215,6 +244,10 @@ button:focus-visible, input:focus-visible, .file-label:focus-within { outline: 2
   .noise, .scanline { display: none; }
   /* The flicker step becomes a steady dimmed frame. */
   .dossier.phase-flicker { animation: none !important; opacity: .45; }
-  .dossier.phase-flicker .dossier-photo img { animation: none !important; }
+  .dossier.phase-flicker .creepy-photo canvas { animation: none !important; }
   .simulation.phase-flicker .stage::after { display: none; }
 }
+
+/* Form: optional photo can be cleared without removing the dossier. */
+.file-clear { padding: .4rem .6rem; border: 1px solid #3a3a37; background: transparent; color: var(--muted); cursor: pointer; font-size: .62rem; letter-spacing: .1em; }
+.file-clear:hover { border-color: var(--red); color: #fff; }

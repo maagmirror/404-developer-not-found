@@ -7,7 +7,7 @@ import {
   saveRememberedNames,
   toRememberedVisitors,
 } from '../domain/memory'
-import { classifySubmission, findUniqueVisitor, normalizeIdentity } from '../domain/recognition'
+import { findConfidentVisitor, findMatchingVisitors, findTypingMatch, normalizeIdentity } from '../domain/recognition'
 import { useTimers } from '../hooks/useTimers'
 import type { Identity, Trigger } from '../variants/types'
 import { TerminalInput } from './TerminalInput'
@@ -15,23 +15,25 @@ import { TerminalInput } from './TerminalInput'
 /** Short glitch burst over the frozen input before the variant takes over. */
 const GLITCH_MS = 420
 const IDLE_HINT = 'NO MIENTAS. LO SABRÉ.'
+/** The jumpscare cuts in once this many letters are typed. */
+const INTERRUPT_AT = 4
 
 interface IdentityPromptProps {
   trigger: Trigger
+  /** Watch the typing for someone in the database ("Reconocimiento anticipado"). */
+  recognize: boolean
   /** Hand over without the glitch burst (jumpscare). */
   instant?: boolean
   onDone: (identity: Identity) => void
 }
 
 /** The start screen of every visit: "¿QUIÉN ERES?" and the name input. */
-export function IdentityPrompt({ trigger, instant = false, onDone }: IdentityPromptProps) {
+export function IdentityPrompt({ trigger, recognize, instant = false, onDone }: IdentityPromptProps) {
   const { schedule } = useTimers()
   const [input, setInput] = useState('')
   const [frozen, setFrozen] = useState(false)
   const [feedback, setFeedback] = useState(IDLE_HINT)
   const [rememberedNames, setRememberedNames] = useState(loadRememberedNames)
-  // Interrupting variants strike after 2–4 letters so it cannot be anticipated.
-  const [interruptAfter] = useState(() => 2 + Math.floor(Math.random() * 3))
   const inputRef = useRef<HTMLInputElement>(null)
   const knownVisitors = useMemo(
     () => [...visitors, ...toRememberedVisitors(rememberedNames)],
@@ -56,41 +58,39 @@ export function IdentityPrompt({ trigger, instant = false, onDone }: IdentityPro
   // Names are shown inside sentences, so hand them over already uppercased.
   const known = (visitor: Visitor): Identity => ({ visitor, name: visitor.name.toUpperCase() })
 
+  // Two things may cut in before Enter: recognizing someone from the database, which wins,
+  // and the jumpscare after a few letters (the name is lost, and it is not saved). The
+  // jumpscare holds off while the letters could still become someone it would recognize.
   useEffect(() => {
     if (frozen) return
-    if (trigger === 'recognize') {
-      const unique = findUniqueVisitor(input, knownVisitors)
-      if (unique) handOver(known(unique))
+    const match = recognize ? findTypingMatch(input, knownVisitors) : null
+    if (match) {
+      handOver(known(match))
+      return
     }
-    if (trigger === 'interrupt' && normalizeIdentity(input).replace(/ /g, '').length >= interruptAfter) {
-      // The name is only "known" if those few letters already single someone out.
-      const unique = findUniqueVisitor(input, knownVisitors)
-      handOver(unique ? known(unique) : {}, instant)
+    const couldBeKnown = recognize && findMatchingVisitors(input, knownVisitors).length > 0
+    if (trigger === 'interrupt' && !couldBeKnown && normalizeIdentity(input).replace(/ /g, '').length >= INTERRUPT_AT) {
+      handOver({}, instant)
     }
-  }, [frozen, handOver, input, instant, interruptAfter, knownVisitors, trigger])
+  }, [frozen, handOver, input, instant, knownVisitors, recognize, trigger])
 
   const onSubmit = () => {
     if (frozen || normalizeIdentity(input).length === 0) return
 
-    const decision = classifySubmission(input, knownVisitors)
-    if (decision.kind === 'known') {
-      handOver(known(decision.visitor))
-      return
-    }
-    if (decision.kind === 'ambiguous' && trigger === 'recognize') {
-      setFeedback('NO TE RECONOZCO DEL TODO… SIGUE ESCRIBIENDO')
-      inputRef.current?.focus()
+    // Only "Reconocimiento anticipado" puts a database name on the visitor; every other event
+    // uses exactly what was typed ("Pedro" is not "Pedro Gómez", "Sofi" is not "Sofía").
+    const match = recognize ? findConfidentVisitor(input, knownVisitors) : null
+    if (match) {
+      handOver(known(match), instant)
       return
     }
 
+    // Everyone who submits a new name ends up in the database for the next visit.
     const name = input.trim().replace(/\s+/g, ' ')
-    if (decision.kind === 'unknown') {
-      // "VOY A RECORDARTE" is a promise: the next visit recognizes this name.
-      const next = addRememberedName(rememberedNames, name, visitors)
-      setRememberedNames(next)
-      saveRememberedNames(next)
-    }
-    handOver({ name: name.toUpperCase() })
+    const next = addRememberedName(rememberedNames, name, visitors)
+    setRememberedNames(next)
+    saveRememberedNames(next)
+    handOver({ name: name.toUpperCase() }, instant)
   }
 
   return (

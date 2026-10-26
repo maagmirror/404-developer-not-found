@@ -1,84 +1,86 @@
 import { describe, expect, it } from 'vitest'
+import { EVENT_KINDS } from './events'
 import { buildManifest, type VideoEntry } from './manifest'
 import { createSeededRandom } from './random'
-import { createMemory, planNextEvent, recordStart, recordVideoEnd, videoTimeoutMs, type SchedulerConfig, type SchedulerMemory } from './scheduler'
+import { createMemory, planNextEvent, recordStart, videoTimeoutMs, type PlannedEvent, type SchedulerConfig } from './scheduler'
 
-const config: SchedulerConfig = { ambientGapMs: [10000, 20000], videoChance: 0.6, videoMinIntervalMs: 30000 }
+const config: SchedulerConfig = { ambientGapMs: [10000, 20000] }
 const clip = (id: string, extra: Partial<VideoEntry> = {}): VideoEntry => ({
   id, src: `/${id}.mp4`, file: `${id}.mp4`, label: id, mimeType: 'video/mp4', durationMs: 8000,
   weight: 1, cooldownMs: 0, fit: 'contain', cctv: true, ...extra,
 })
 const clips = [clip('a'), clip('b'), clip('c')]
 
-// Runs the night forward: each event lasts 10 s, then the next one is planned.
+// Runs the night forward: each event lasts 10 s, then the next one is dealt.
 function simulate(videos: VideoEntry[], seed: number, count: number) {
   const random = createSeededRandom(seed)
-  let memory: SchedulerMemory = createMemory()
+  let memory = createMemory()
   let now = 0
-  const events = []
+  const events: PlannedEvent[] = []
   for (let index = 0; index < count; index += 1) {
-    const event = planNextEvent(memory, now, videos, random, config)
-    events.push(event)
-    memory = recordStart(memory, event)
-    now = event.startAt + 10000
-    if (event.kind === 'video') memory = recordVideoEnd(memory, now)
+    const planned = planNextEvent(memory, now, videos, random, config)
+    events.push(planned.event)
+    memory = recordStart(planned.memory, planned.event)
+    now = planned.event.startAt + 10000
   }
   return events
 }
 
-describe('event scheduler', () => {
+describe('event deck', () => {
   it('replays the same sequence for the same seed', () => {
     expect(simulate(clips, 404, 40)).toEqual(simulate(clips, 404, 40))
     expect(simulate(clips, 404, 40)).not.toEqual(simulate(clips, 405, 40))
   })
 
-  it('keeps every ambient gap inside the configured window', () => {
+  it('deals every event once per round', () => {
+    const events = simulate(clips, 7, EVENT_KINDS.length * 10)
+    for (let round = 0; round < 10; round += 1) {
+      const kinds = events.slice(round * EVENT_KINDS.length, (round + 1) * EVENT_KINDS.length).map((event) => event.kind)
+      expect([...kinds].sort()).toEqual([...EVENT_KINDS].sort())
+    }
+  })
+
+  it('never repeats an event back to back, even across rounds', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const events = simulate(clips, seed, 100)
+      for (let index = 1; index < events.length; index += 1) expect(events[index].kind).not.toBe(events[index - 1].kind)
+    }
+  })
+
+  it('keeps every idle gap inside the configured window', () => {
     const random = createSeededRandom(1)
-    for (let index = 0; index < 200; index += 1) {
-      const event = planNextEvent(createMemory(), 5000, clips, random, config)
-      expect(event.startAt - 5000).toBeGreaterThanOrEqual(10000)
-      expect(event.startAt - 5000).toBeLessThanOrEqual(20000)
-    }
-  })
-
-  it('never plays two videos in a row and never repeats the same clip back to back', () => {
-    const events = simulate(clips, 7, 300)
-    expect(events.some((event) => event.kind === 'video')).toBe(true)
-    expect(events.some((event) => event.kind === 'face')).toBe(true)
-    for (let index = 1; index < events.length; index += 1) {
-      expect(events[index - 1].kind === 'video' && events[index].kind === 'video').toBe(false)
-    }
-    const videoIds = events.filter((event) => event.kind === 'video').map((event) => event.videoId)
-    for (let index = 1; index < videoIds.length; index += 1) expect(videoIds[index]).not.toBe(videoIds[index - 1])
-  })
-
-  it('respects the minimum interval between videos', () => {
-    const random = createSeededRandom(3)
-    let memory = recordVideoEnd(recordStart(createMemory(), { kind: 'video', startAt: 0, videoId: 'a' }), 50000)
-    memory = recordStart(memory, { kind: 'face', startAt: 60000 })
+    let memory = createMemory()
     for (let index = 0; index < 100; index += 1) {
-      // 55 s + at most 20 s gap is still under 50 s + 30 s: always a face.
-      expect(planNextEvent(memory, 55000, clips, random, { ...config, videoChance: 1 }).kind).toBe('face')
+      const planned = planNextEvent(memory, 5000, clips, random, config)
+      memory = planned.memory
+      expect(planned.event.startAt - 5000).toBeGreaterThanOrEqual(10000)
+      expect(planned.event.startAt - 5000).toBeLessThanOrEqual(20000)
     }
+  })
+
+  it('never plays the same clip twice in a row', () => {
+    const ids = simulate(clips, 9, 200).filter((event) => event.kind === 'video').map((event) => event.videoId)
+    expect(ids.length).toBeGreaterThan(10)
+    for (let index = 1; index < ids.length; index += 1) expect(ids[index]).not.toBe(ids[index - 1])
   })
 
   it('prefers clips whose cooldown has expired', () => {
-    const random = createSeededRandom(9)
-    const slow = [clip('a', { cooldownMs: 1e9 }), clip('b', { cooldownMs: 1e9 }), clip('c', { cooldownMs: 1e9 })]
-    const memory = { ...createMemory(), lastKind: 'face' as const, lastVideoId: 'a', playedAt: { a: 0, b: 1000 } }
-    for (let index = 0; index < 50; index += 1) {
-      expect(planNextEvent(memory, 100000, slow, random, config, 'video').videoId).toBe('c')
+    const slow = clips.map((entry) => ({ ...entry, cooldownMs: 1e9 }))
+    const memory = { ...createMemory(), lastVideoId: 'a', playedAt: { a: 0, b: 1000 } }
+    for (let index = 0; index < 20; index += 1) {
+      expect(planNextEvent(memory, 100000, slow, createSeededRandom(index), config, 'video').event.videoId).toBe('c')
     }
   })
 
-  it('falls back to faces only when there are no clips', () => {
-    expect(simulate([], 11, 50).every((event) => event.kind === 'face')).toBe(true)
+  it('drops the video event when there are no clips', () => {
+    expect(simulate([], 11, 40).some((event) => event.kind === 'video')).toBe(false)
   })
 
-  it('starts a forced event immediately', () => {
-    const event = planNextEvent(createMemory(), 1234, clips, createSeededRandom(2), config, 'video')
-    expect(event).toMatchObject({ kind: 'video', startAt: 1234 })
-    expect(planNextEvent(createMemory(), 1234, clips, createSeededRandom(2), config, 'face')).toEqual({ kind: 'face', startAt: 1234 })
+  it('runs a forced event now without using up the deck', () => {
+    const memory = createMemory()
+    const planned = planNextEvent(memory, 1234, clips, createSeededRandom(2), config, 'rush')
+    expect(planned.event).toEqual({ kind: 'rush', startAt: 1234 })
+    expect(planned.memory.deck).toEqual(memory.deck)
   })
 
   it('caps the timeout of unknown or long clips', () => {
@@ -89,7 +91,6 @@ describe('event scheduler', () => {
 
   it('works with the placeholder playlist', () => {
     const placeholders = buildManifest({}, {}, { cooldownMs: 0, placeholderMs: 7000 })
-    const events = simulate(placeholders, 5, 100)
-    expect(events.some((event) => event.kind === 'video' && event.videoId?.startsWith('placeholder-'))).toBe(true)
+    expect(simulate(placeholders, 5, 20).some((event) => event.kind === 'video' && event.videoId?.startsWith('placeholder-'))).toBe(true)
   })
 })

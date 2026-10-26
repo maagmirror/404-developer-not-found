@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { visitors } from '../data/visitors'
+import { exampleVisitors as visitors } from '../data/visitors.fixture'
 import {
   classifySubmission,
+  findConfidentVisitor,
+  findTypingMatch,
   findMatchingVisitors,
   findUniqueVisitor,
   normalizeIdentity,
@@ -11,6 +13,57 @@ describe('normalizeIdentity', () => {
   it('normalizes case, accents, and unnecessary whitespace', () => {
     expect(normalizeIdentity('  MÁR   BLE  ')).toBe('mar ble')
     expect(normalizeIdentity('BÓREAL')).toBe('boreal')
+  })
+})
+
+describe('findConfidentVisitor', () => {
+  const people = [...visitors, { id: 'ricardo', name: 'Ricardo Rodriguez', aliases: ['Richi'] }]
+
+  it('accepts a full name, alias, or first name written in full', () => {
+    expect(findConfidentVisitor('  MÁRBLE ', people)?.name).toBe('Marble')
+    expect(findConfidentVisitor('veil', people)?.name).toBe('Marrow')
+    expect(findConfidentVisitor('ricardo', people)?.name).toBe('Ricardo Rodriguez')
+    expect(findConfidentVisitor('ricardo rodriguez', people)?.name).toBe('Ricardo Rodriguez')
+  })
+
+  it('tolerates one typo on longer names', () => {
+    expect(findConfidentVisitor('marbke', people)?.name).toBe('Marble')
+    expect(findConfidentVisitor('ricardo rodrigez', people)?.name).toBe('Ricardo Rodriguez')
+  })
+
+  it('rejects partial or doubtful input', () => {
+    expect(findConfidentVisitor('marb', people)).toBeNull()
+    expect(findConfidentVisitor('ric', people)).toBeNull()
+    expect(findConfidentVisitor('nobody', people)).toBeNull()
+  })
+})
+
+describe('findTypingMatch', () => {
+  const people = [
+    { id: 'martin', name: 'Martín', aliases: [] },
+    { id: 'marcos', name: 'Marcos', aliases: [] },
+    { id: 'alexander', name: 'Alexander Pérez', aliases: ['Alex'] },
+  ]
+
+  it('never guesses from too few letters or a shared start', () => {
+    expect(findTypingMatch('ma', people)).toBeNull()
+    expect(findTypingMatch('mar', people)).toBeNull()
+    expect(findTypingMatch('manu', people)).toBeNull()
+    // MARTA must not be taken for MARTÍN.
+    expect(findTypingMatch('mart', people)).toBeNull()
+  })
+
+  it('guesses once the start points to one person', () => {
+    expect(findTypingMatch('marti', people)?.id).toBe('martin')
+    expect(findTypingMatch('marco', people)?.id).toBe('marcos')
+    expect(findTypingMatch('alex', people)?.id).toBe('alexander')
+  })
+
+  it('needs enough of a long name', () => {
+    const solo = [{ id: 'alexander', name: 'Alexander', aliases: [] }]
+    expect(findTypingMatch('alex', solo)).toBeNull()
+    expect(findTypingMatch('alexan', solo)).toBeNull()
+    expect(findTypingMatch('alexand', solo)?.id).toBe('alexander')
   })
 })
 

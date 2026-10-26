@@ -4,17 +4,16 @@ export interface VariantInfo {
   id: VariantId
   label: string
   trigger: Trigger
-  /** Skip the glitch burst when interrupting (the jumpscare must be instant). */
+  /** Skip the glitch burst on hand-over (the jumpscare must be instant). */
   instant?: boolean
 }
 
-/** Order matters: Alt+1..7 force the variant at that position. */
+/** Order matters: Alt+1..6 force the variant at that position. */
 export const variants: VariantInfo[] = [
   { id: 'anticipado', label: 'RECONOCIMIENTO ANTICIPADO', trigger: 'recognize' },
   { id: 'jumpscare', label: 'JUMPSCARE AL ESCRIBIR', trigger: 'interrupt', instant: true },
-  { id: 'cuenta', label: 'CUENTA REGRESIVA', trigger: 'interrupt' },
-  { id: 'emergencia', label: 'PROTOCOLO DE EMERGENCIA', trigger: 'interrupt' },
-  { id: 'facial', label: 'RECONOCIMIENTO FACIAL', trigger: 'interrupt' },
+  { id: 'cuenta', label: 'CUENTA REGRESIVA', trigger: 'submit' },
+  { id: 'facial', label: 'RECONOCIMIENTO FACIAL', trigger: 'submit' },
   { id: 'captcha', label: 'CAPTCHA MACABRO', trigger: 'submit' },
   { id: 'sobrevive', label: 'ELIGE QUIÉN SOBREVIVE', trigger: 'submit' },
 ]

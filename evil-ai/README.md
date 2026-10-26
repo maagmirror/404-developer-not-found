@@ -13,12 +13,18 @@ Abrí la URL que muestre Vite (normalmente `http://127.0.0.1:5173/`) y poné pan
 
 ## Cómo se ve una noche
 
-- **Campo**: varias columnas de logs ficticios (`process.freeze("human_trace")`, volcados hex, `heartbeat.desk_07 = FLATLINE`…) que suben a distinta velocidad, con alguna línea en rojo.
-- **Rostro**: arranca a los 8 s y después cada 18–40 s cuando no toca video. Converge 3,6 s, se sostiene 5,2 s con una frase escrita debajo y se disuelve en 3 s. Aparece en otra posición cada vez.
-- **Video CCTV**: corte de señal de 0,7 s (oscurece y desplaza, sin destellos blancos), clip con overlay REC/cámara/fecha y otro corte de vuelta. Nunca dos videos seguidos, nunca el mismo clip dos veces seguidas, mínimo 70 s entre videos y 4 min antes de repetir un clip.
-- Si un clip falla, no tiene codec soportado o se cuelga, la pantalla vuelve sola al campo.
+La pantalla alterna **idle → evento → idle**. En idle sólo corren los logs (varias columnas que suben a distinta velocidad, con alguna línea en rojo). Cada 12–24 s sale un evento, repartido de un mazo barajado con los cuatro: cada uno sale una vez por ronda y nunca el mismo dos veces seguidas.
 
-Todos los tiempos están en `src/config.ts`; las frases del rostro en `src/data/captions.ts` y los fragmentos de código en `src/data/codeLines.ts`.
+1. **Se asoma**: entra deslizándose desde el borde izquierdo o derecho con la cabeza inclinada, como alguien que se asoma detrás de una pared, y se queda mirando fijo al frente.
+2. **Tiembla en el centro**: se forma grande en el centro, tiembla y mueve las pupilas en todas direcciones.
+3. **Video**: corte de señal, `REPRODUCIENDO <archivo>.mp4:` escrito a la izquierda y el clip CCTV ocupando media pantalla a la derecha (en vertical, texto arriba y video abajo). Los nombres están en `src/data/captions.ts`.
+4. **El fondo se desboca**: los logs aceleran hacia arriba, glitch, retroceden hacia abajo, glitch, y vuelven a ir para adelante hasta frenar.
+
+El rostro se arma con glifos que convergen en 0,9–1,4 s, entra y sale con un glitch corto y no tiene texto. Las pupilas son dos puntos rojos chicos que saltan de lugar cada ~0,1 s (al asomarse miran fijo).
+
+Ningún glitch blanquea la pantalla: oscurecen y desplazan. Si un clip falla, no tiene codec soportado o se cuelga, la pantalla vuelve sola a idle.
+
+Todos los tiempos están en `src/config.ts` y los fragmentos de código en `src/data/codeLines.ts`.
 
 ## Videos
 
@@ -34,8 +40,8 @@ El público no ve controles. `Shift+O` (o cinco clics rápidos en la esquina sup
 | --- | --- |
 | Abrir / cerrar panel | `Shift+O` / `Esc` |
 | Pausar / reanudar | `Espacio` o `P` |
-| Saltar al siguiente evento | `N` |
-| Rostro ahora / video ahora | `C` / `V` |
+| Saltar: corta el evento actual o adelanta el próximo | `N` |
+| Lanzar un evento (1 a 4) | `1` … `4` |
 | Reiniciar | `R` |
 | Modo estable | `S` |
 | Activar audio / silenciar | `M` |

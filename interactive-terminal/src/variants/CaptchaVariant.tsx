@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { playBeep, playGlitch, playKey, unlockAudio } from '../audio/sfx'
 import { OfficeImage } from '../components/OfficeImage'
-import { desks } from '../data/office'
+import { VideoTiles } from '../components/VideoTiles'
+import { captchaVideoUrl, desks } from '../data/office'
 import { useTimers } from '../hooks/useTimers'
 import type { VariantProps } from './types'
 
@@ -13,12 +14,13 @@ const VERDICT_HOLD_MS = 2600
 
 const threats = ['YA NO QUEDA NADIE. SOLO TÚ.', 'TÚ ERES EL ÚLTIMO.', 'PRONTO SERÁN CERO.']
 
-/** "Select every image with living people": the office desks are crime scenes and the answer is always none. */
+/** "Select every square with life" over a CCTV loop: whatever the visitor picks, it always fails. */
 export function CaptchaVariant({ identity, onFinal }: VariantProps) {
   const { schedule } = useTimers()
   const [phase, setPhase] = useState<Phase>('select')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [flagged, setFlagged] = useState(0)
+  const [hasVideo, setHasVideo] = useState(true)
 
   const toggle = (id: string) => {
     if (phase !== 'select') return
@@ -66,6 +68,25 @@ export function CaptchaVariant({ identity, onFinal }: VariantProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   })
 
+  const tile = (index: number, picture: ReactNode) => {
+    const desk = desks[index]
+    const isFlagged = index < flagged
+    return (
+      <button
+        key={desk.id}
+        type="button"
+        className={`captcha-tile${selected.has(desk.id) ? ' is-selected' : ''}${isFlagged ? ' is-flagged' : ''}`}
+        onClick={() => toggle(desk.id)}
+        aria-pressed={selected.has(desk.id)}
+        aria-label={`Casilla ${index + 1}`}
+      >
+        {picture}
+        <span className="captcha-tag">{index + 1}</span>
+        {isFlagged && <span className="captcha-verdict">SIN SIGNOS VITALES</span>}
+      </button>
+    )
+  }
+
   return (
     <section className="stage" aria-live="polite">
       {phase === 'verdict' && <div className="alert-wash" aria-hidden="true" />}
@@ -74,39 +95,29 @@ export function CaptchaVariant({ identity, onFinal }: VariantProps) {
       </p>
       <div className="captcha">
         <div className="captcha-head">
-          <span>Selecciona todas las imágenes con</span>
-          <strong>PERSONAS VIVAS</strong>
+          <span>Selecciona todas las casillas con</span>
+          <strong>VIDA</strong>
         </div>
-        <div className="captcha-grid">
-          {desks.map((desk, index) => {
-            const isFlagged = index < flagged
-            return (
-              <button
-                key={desk.id}
-                type="button"
-                className={`captcha-tile${selected.has(desk.id) ? ' is-selected' : ''}${isFlagged ? ' is-flagged' : ''}`}
-                onClick={() => toggle(desk.id)}
-                aria-pressed={selected.has(desk.id)}
-              >
-                <OfficeImage photo={desk.photo} kind="desk" alt={desk.label} />
-                <span className="captcha-tag">EVIDENCIA {index + 1} · {desk.label}</span>
-                {isFlagged && <span className="captcha-verdict">SIN SIGNOS VITALES</span>}
-              </button>
-            )
-          })}
+        <div className={`captcha-grid${hasVideo ? ' is-video' : ''}`}>
+          {hasVideo ? (
+            <VideoTiles src={captchaVideoUrl} onUnavailable={() => setHasVideo(false)}>
+              {(index, canvas) => tile(index, canvas)}
+            </VideoTiles>
+          ) : (
+            desks.map((desk, index) => tile(index, <OfficeImage photo={desk.photo} kind="desk" alt={desk.label} />))
+          )}
         </div>
         <div className="captcha-foot">
-          <span className="text-muted">1–9 PARA ELEGIR · ENTER PARA VERIFICAR</span>
+          <span className="text-muted">1–9 ELEGIR · ENTER VERIFICAR</span>
           <button type="button" className="captcha-verify" onClick={verify} disabled={phase !== 'select'}>
             {phase === 'select' ? 'VERIFICAR' : 'ANALIZANDO…'}
           </button>
         </div>
       </div>
-      {phase === 'verdict' && (
-        <p className="captcha-result text-blood glow-red screen-in">
-          {selected.size === 0 ? 'CORRECTO.' : 'INCORRECTO.'} HUMANOS VIVOS DETECTADOS: 0
-        </p>
-      )}
+      {/* Always rendered so its space is reserved and the layout does not jump. */}
+      <p className={`captcha-result text-blood glow-red${phase === 'verdict' ? ' screen-in' : ' is-pending'}`}>
+        VERIFICACIÓN FALLIDA. HUMANOS VIVOS DETECTADOS: 0
+      </p>
     </section>
   )
 }

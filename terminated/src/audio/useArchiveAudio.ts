@@ -17,6 +17,41 @@ interface ArchiveAudioEngine {
   oscillators: OscillatorNode[]
   pulseTimer: number | null
   stopped: boolean
+  /** Recorded scream for the terminated cue; null until decoded or if it failed to load. */
+  scream: AudioBuffer | null
+}
+
+// Recorded scream (credits in CREDITS.md); fetched once, decoded per audio context.
+const SCREAM_URL = `${import.meta.env.BASE_URL}sounds/scream-terminated.ogg`
+const SCREAM_LEVEL = 0.9
+let screamData: Promise<ArrayBuffer> | null = null
+
+function loadScream(engine: ArchiveAudioEngine) {
+  screamData ??= fetch(SCREAM_URL).then((response) => {
+    if (!response.ok) throw new Error(`scream: HTTP ${response.status}`)
+    return response.arrayBuffer()
+  })
+  screamData
+    // decodeAudioData detaches its input, so each context gets a copy.
+    .then((data) => engine.context.decodeAudioData(data.slice(0)))
+    .then((buffer) => { engine.scream = buffer })
+    .catch(() => { /* The synthesized screech stays as the fallback. */ })
+}
+
+function playScream(engine: ArchiveAudioEngine): boolean {
+  if (engine.stopped || !engine.scream) return false
+  const { context, master } = engine
+  const source = context.createBufferSource()
+  const gain = context.createGain()
+  source.buffer = engine.scream
+  gain.gain.value = SCREAM_LEVEL
+  source.connect(gain).connect(master)
+  source.addEventListener('ended', () => {
+    source.disconnect()
+    gain.disconnect()
+  }, { once: true })
+  source.start()
+  return true
 }
 
 function getStoredMute() {
@@ -170,7 +205,8 @@ function createEngine(volume: number, muted: boolean): ArchiveAudioEngine | null
       oscillators.push(oscillator)
     })
 
-    const engine: ArchiveAudioEngine = { context, master, drone, oscillators, pulseTimer: null, stopped: false }
+    const engine: ArchiveAudioEngine = { context, master, drone, oscillators, pulseTimer: null, stopped: false, scream: null }
+    loadScream(engine)
     schedulePulses(engine)
     void context.resume().catch(() => undefined)
     return engine
@@ -194,12 +230,15 @@ function playCue(engine: ArchiveAudioEngine | null, cue: Cue) {
       createTone(engine, 311, 0.8, 0.03, 'sawtooth', 0.05, 92)
     },
     terminated: () => {
-      // Horror stinger: sub impact, a falling shriek, a dissonant minor-second cluster and a dying rumble.
+      // Horror stinger: sub impact, a scream (recorded, or synthesized if it isn't loaded),
+      // a dissonant minor-second cluster and a dying rumble.
       createTone(engine, 80, 0.9, 0.16, 'sine', 0, 28)
       createTone(engine, 58, 1.35, 0.1, 'sawtooth')
-      createNoiseSweep(engine, 1.3, 0.11, 2800, 600, 7)
-      createScreech(engine, 1180, 330, 1.5, 0.045)
-      createScreech(engine, 1245, 311, 1.5, 0.035, 0.02)
+      if (!playScream(engine)) {
+        createNoiseSweep(engine, 1.3, 0.11, 2800, 600, 7)
+        createScreech(engine, 1180, 330, 1.5, 0.045)
+        createScreech(engine, 1245, 311, 1.5, 0.035, 0.02)
+      }
       ;[466, 494, 523].forEach((frequency, index) => createTone(engine, frequency, 2.4, 0.02, 'sawtooth', 0.12 + index * 0.03, frequency * 0.94))
       createTone(engine, 31, 2.6, 0.09, 'sine', 0.3)
     },

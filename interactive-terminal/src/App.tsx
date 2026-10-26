@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { isMuted, setMuted, unlockAudio } from './audio/sfx'
 import { FinalMessage } from './components/FinalMessage'
 import { IdentityPrompt } from './components/IdentityPrompt'
+import { RecoverOnError } from './components/RecoverOnError'
+import { loadRememberedNames, saveRememberedNames } from './domain/memory'
+import { canPlaySurvivor } from './domain/survivorPicks'
 import { CaptchaVariant } from './variants/CaptchaVariant'
 import { CountdownVariant } from './variants/CountdownVariant'
-import { EmergencyVariant } from './variants/EmergencyVariant'
 import { FacialVariant } from './variants/FacialVariant'
 import { JumpscareVariant } from './variants/JumpscareVariant'
 import { createVariantPicker, pinnedVariantFromUrl, variantInfo, variants } from './variants/registry'
@@ -14,7 +16,37 @@ import type { FinalRequest, Identity, VariantId, VariantProps } from './variants
 
 const pinnedVariant = pinnedVariantFromUrl(window.location.search)
 const pickVariant = createVariantPicker()
-const nextVariant = () => pinnedVariant ?? pickVariant()
+const isPlayable = (id: VariantId) => id !== 'sobrevive' || canPlaySurvivor()
+
+/** Draws from the shuffle bag, passing over variants the database cannot support yet. */
+function nextVariant(): VariantId {
+  if (pinnedVariant && isPlayable(pinnedVariant)) return pinnedVariant
+  for (let tries = 0; tries < variants.length * 2; tries += 1) {
+    const id = pickVariant()
+    if (isPlayable(id)) return id
+  }
+  return variants[0].id
+}
+
+/**
+ * true: anyone the database recognizes (near-certain match) always gets "Reconocimiento anticipado",
+ * whatever variant was drawn. false: it only plays when the rotation draws it.
+ */
+const ALWAYS_RECOGNIZE = false
+
+/**
+ * "Reconocimiento anticipado" without a near-certain match does not happen: another variant plays
+ * instead. By then the name was already submitted, so only variants that start after Enter qualify
+ * (never the jumpscare, whose point is cutting the visitor off mid-name).
+ */
+function fallbackVariant(): VariantId {
+  const afterSubmit = (id: VariantId) => variantInfo(id).trigger === 'submit' && isPlayable(id)
+  for (let tries = 0; tries < variants.length * 2; tries += 1) {
+    const id = pickVariant()
+    if (afterSubmit(id)) return id
+  }
+  return 'facial'
+}
 
 function renderVariant(id: VariantId, props: VariantProps) {
   switch (id) {
@@ -24,8 +56,6 @@ function renderVariant(id: VariantId, props: VariantProps) {
       return <JumpscareVariant {...props} />
     case 'cuenta':
       return <CountdownVariant {...props} />
-    case 'emergencia':
-      return <EmergencyVariant {...props} />
     case 'facial':
       return <FacialVariant {...props} />
     case 'captcha':
@@ -61,9 +91,29 @@ function App() {
     setVisit((count) => count + 1)
   }, [])
 
-  const onIdentity = useCallback((identity: Identity) => setPhase({ kind: 'variant', identity }), [])
+  const onIdentity = useCallback(
+    (identity: Identity) => {
+      if (ALWAYS_RECOGNIZE && identity.visitor) setVariant('anticipado')
+      else if (variant === 'anticipado' && !identity.visitor) setVariant(fallbackVariant())
+      setPhase({ kind: 'variant', identity })
+    },
+    [variant],
+  )
   const onFinal = useCallback((request: FinalRequest) => setPhase({ kind: 'final', request }), [])
   const onFinalDone = useCallback(() => startVisit(), [startVisit])
+  // A crashed screen gets a short beat, then the terminal starts over.
+  const onCrash = useCallback(() => {
+    window.setTimeout(() => startVisit(), 1500)
+  }, [startVisit])
+
+  // Operator: names typed at this terminal (browser storage), with a way to start clean.
+  const [dbCount, setDbCount] = useState(() => loadRememberedNames().length)
+  useEffect(() => setDbCount(loadRememberedNames().length), [phase])
+  const clearDatabase = () => {
+    if (!window.confirm(`¿Borrar los ${dbCount} nombres guardados en este navegador?`)) return
+    saveRememberedNames([])
+    startVisit()
+  }
 
   const toggleMute = () => {
     unlockAudio()
@@ -85,19 +135,19 @@ function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       unlockAudio()
-      // Operator shortcut: Alt+1..7 restarts with that variant armed.
+      // Operator shortcut: Alt+1..6 restarts with that variant armed.
       const forced = event.altKey ? variants[Number(event.key) - 1] : undefined
       if (forced) {
         event.preventDefault()
-        startVisit(forced.id)
+        if (isPlayable(forced.id)) startVisit(forced.id)
         return
       }
       if (event.key === 'Escape') startVisit()
-      if (typingInField()) return
-      const key = event.key.toLowerCase()
-      if (key === 'r') startVisit()
-      if (key === 'm') toggleMute()
-      if (key === 'f') void toggleFullscreen()
+      // No letter shortcuts: a visitor typing a name (say "Martín") with the input unfocused
+      // would silently mute the terminal for good. Typing on the start screen goes to the input.
+      if (phase.kind === 'prompt' && !typingInField() && event.key.length === 1 && !event.ctrlKey && !event.metaKey) {
+        document.querySelector<HTMLInputElement>('#identity')?.focus()
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -127,20 +177,30 @@ function App() {
       ))}
 
       <div key={`${phase.kind}-${visit}`} className="variant">
-        {phase.kind === 'prompt' && (
-          <IdentityPrompt trigger={info.trigger} instant={info.instant} onDone={onIdentity} />
-        )}
-        {phase.kind === 'variant' && renderVariant(variant, { identity: phase.identity, onFinal })}
-        {phase.kind === 'final' && <FinalMessage request={phase.request} onDone={onFinalDone} />}
+        <RecoverOnError onError={onCrash}>
+          {phase.kind === 'prompt' && (
+            <IdentityPrompt
+              trigger={info.trigger}
+              recognize={ALWAYS_RECOGNIZE || info.trigger === 'recognize'}
+              instant={info.instant}
+              onDone={onIdentity}
+            />
+          )}
+          {phase.kind === 'variant' && renderVariant(variant, { identity: phase.identity, onFinal })}
+          {phase.kind === 'final' && <FinalMessage request={phase.request} onDone={onFinalDone} />}
+        </RecoverOnError>
       </div>
 
       <div className="controls">
         <button type="button" className="is-primary" onClick={() => startVisit()}>[ESC] OTRA PERSONA</button>
         <button type="button" onClick={toggleMute} aria-pressed={muted}>
-          [M] {muted ? 'SIN SONIDO' : 'SONIDO'}
+          {muted ? 'SIN SONIDO' : 'SONIDO'}
         </button>
         <button type="button" onClick={() => void toggleFullscreen()}>
-          [F] {isFullscreen ? 'SALIR' : 'PANTALLA COMPLETA'}
+          {isFullscreen ? 'SALIR' : 'PANTALLA COMPLETA'}
+        </button>
+        <button type="button" onClick={clearDatabase} title="Nombres guardados en este navegador">
+          BORRAR NOMBRES ({dbCount})
         </button>
       </div>
     </main>

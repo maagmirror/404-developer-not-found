@@ -30,3 +30,28 @@ export function sabotage(value: string, random: Random = Math.random): string {
   // A swap of identical letters changes nothing; fall back to a lookalike.
   return result === value ? value.slice(0, -1) + nearby(value[value.length - 1], random) : result
 }
+
+/** Neighbouring keys on a Spanish QWERTY keyboard. */
+const keyboardNeighbours: Record<string, string> = {
+  Q: 'WA', W: 'QES', E: 'WRD', R: 'ETF', T: 'RYG', Y: 'TUH', U: 'YIJ', I: 'UOK', O: 'IPL', P: 'OÑ',
+  A: 'QSZ', S: 'ADW', D: 'SFE', F: 'DGR', G: 'FHT', H: 'GJY', J: 'HKU', K: 'JLI', L: 'KÑO', Ñ: 'LP',
+  Z: 'XA', X: 'ZCS', C: 'XVD', V: 'CBF', B: 'VNG', N: 'BMH', M: 'NJ',
+}
+
+/**
+ * Corrupts the key the visitor just typed (the last character of `value`): it becomes a
+ * neighbouring key, gets a stray space in front of it, or comes out doubled.
+ */
+export function sabotageKeystroke(value: string, random: Random = Math.random): string {
+  const typed = value.slice(-1)
+  if (!typed.trim()) return value
+  const before = value.slice(0, -1)
+  const kind = Math.floor(random() * 3)
+
+  if (kind === 1) return `${before} ${typed}`
+  if (kind === 2) return `${value}${typed}`
+  const options = keyboardNeighbours[typed.toUpperCase()]
+  if (!options) return `${value}${typed}`
+  const swapped = options[Math.floor(random() * options.length)]
+  return before + (typed === typed.toLowerCase() ? swapped.toLowerCase() : swapped)
+}

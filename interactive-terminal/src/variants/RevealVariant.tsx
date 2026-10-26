@@ -18,7 +18,7 @@ const threats = [
   'ESTA NOCHE NO APAGUES LA LUZ.',
 ]
 
-const unknownThreats = ['VOY A RECORDARTE.', 'AHORA YA SÉ CÓMO TE LLAMAS.', 'LA PRÓXIMA VEZ TE RECONOCERÉ.']
+const unknownThreats = ['AÑADIDO A LA BASE DE DATOS.', 'AHORA YA SÉ CÓMO TE LLAMAS.', 'LA PRÓXIMA VEZ TE RECONOCERÉ.']
 
 /** Reconocimiento anticipado: "EN REALIDAD YA SABÍA QUE ERAS…", or "SUJETO DESCONOCIDO". */
 export function RevealVariant({ identity, onFinal }: VariantProps) {
@@ -53,7 +53,7 @@ export function RevealVariant({ identity, onFinal }: VariantProps) {
             SUJETO DESCONOCIDO
           </h1>
           <p className="unknown-sub glow-white">INTERESANTE<span className="blink">...</span></p>
-          <p className="unknown-verdict text-muted">VOY A RECORDARTE.</p>
+          <p className="unknown-verdict text-muted">AÑADIDO A LA BASE DE DATOS.</p>
           <p className="fine text-blood-dim">NUEVO REGISTRO CREADO · ROSTRO CAPTURADO · CÁMARA 03</p>
         </div>
       </section>

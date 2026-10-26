@@ -6,13 +6,13 @@ App independiente React + TypeScript + Vite, sin backend ni recursos externos. E
 
 ## Bucle
 
-`profile (3,5 s) → flicker (0,9 s) → terminated (3 s) → siguiente developer`, unos 7,4 s por persona. Una única plantilla de expediente: foto grande, título `DEVELOPER`, nombre grande, esquinas rojas, datos decorativos (clase, ronda, estado) y un código de barras decorativo. En `terminated` se dibuja una X roja sobre la cara, el nombre se raya, el estado pasa a `TERMINATED` y aparece el sello. Al pasar al siguiente, el expediente eliminado sigue montado y se desliza hacia la izquierda mientras el nuevo entra por la derecha (0,75 s; se desmonta en `animationend`).
+`profile (3,5 s) → flicker (0,9 s) → terminated (3 s) → siguiente developer`, unos 7,4 s por persona. Una única ficha de expediente que ocupa la pantalla: foto chica degradada (`components/CreepyPhoto.tsx`: canvas de 88×110 px (pixelado intermedio) con posterizado, ruido y escalado pixelado, más grano y bandas en CSS; silueta si no hay foto), título `DEVELOPER`, nombre grande, esquinas rojas, datos decorativos y un bloque de texto corrupto (`components/GlitchText.tsx`: 32 líneas con el nombre, rellenas con hex para cubrir todo el ancho, mutación de glifos y colores cada 70 ms, que se curan de a poco para seguir medio legibles; cada 900 ms con reduced motion). En `terminated` se dibuja una X roja sobre la cara, el nombre se raya, el estado pasa a `TERMINATED` y cruza la ficha un banner recto ELIMINADO de lado a lado (barrido de la barra y luego la palabra). Al pasar al siguiente, el expediente eliminado sigue montado y se desliza hacia la izquierda mientras el nuevo entra por la derecha (0,75 s; se desmonta en `animationend`).
 
 Cada persona aparece una vez por ronda; con N > 1 la última de una ronda no abre la siguiente. Con N = 1 se repite la misma persona.
 
 ## Formulario
 
-N dossiers (N >= 1), nombre de 2+ caracteres y foto JPG/PNG/WebP de hasta 5 MB. PLAY queda deshabilitado mientras haya uno inválido. Las fotos son object URLs en memoria y se revocan al reemplazarlas, al quitar el dossier o al desmontar.
+N dossiers (N >= 1), nombre de 2+ caracteres y foto **opcional** JPG/PNG/WebP de hasta 5 MB (se puede quitar con QUITAR FOTO). PLAY queda deshabilitado mientras falte un nombre o haya una foto inválida. Las fotos son object URLs en memoria y se revocan al reemplazarlas, al quitar el dossier o al desmontar.
 
 ## Audio
 

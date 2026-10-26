@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { visitors } from '../data/visitors'
+import { exampleVisitors as visitors } from '../data/visitors.fixture'
 import { addRememberedName, isRemembered, toRememberedVisitors } from './memory'
 import { classifySubmission, findUniqueVisitor } from './recognition'
 

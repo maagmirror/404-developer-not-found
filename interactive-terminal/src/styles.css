@@ -147,7 +147,8 @@ p, h1 { margin: 0; }
 
 .controls {
   position: fixed; bottom: 4rem; left: 50%; z-index: 50;
-  display: flex; gap: .5rem; transform: translateX(-50%);
+  display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; transform: translateX(-50%);
+  width: max-content; max-width: calc(100vw - 2rem);
   opacity: .3; transition: opacity .2s;
 }
 .controls:hover, .controls:focus-within { opacity: 1; }
@@ -156,6 +157,7 @@ p, h1 { margin: 0; }
   font-family: var(--font-mono); font-size: 1.125rem; letter-spacing: .08em;
   color: var(--muted-foreground); background: transparent; cursor: pointer;
 }
+.controls button:disabled { opacity: .35; cursor: not-allowed; }
 .controls button.is-primary { border-color: var(--blood); color: var(--blood); }
 .controls button:hover, .controls button:focus-visible { color: var(--foreground); outline: none; border-color: var(--blood); }
 
@@ -213,7 +215,7 @@ img.office-img { filter: grayscale(1) contrast(1.25) brightness(.75) sepia(.5) h
 
 /* CAPTCHA */
 .captcha {
-  width: min(540px, 92vw, 56vh); margin-top: 1rem; padding: .6rem;
+  width: min(540px, 92vw, 50vh); margin-top: 1rem; padding: .6rem;
   border: 2px solid var(--blood); background: oklch(0.08 0.005 20 / 0.85); box-shadow: 0 0 60px var(--blood-dim);
   text-align: left;
 }
@@ -229,6 +231,10 @@ img.office-img { filter: grayscale(1) contrast(1.25) brightness(.75) sepia(.5) h
   content: ""; position: absolute; left: -20%; right: -20%; top: 58%; height: 12%; transform: rotate(-12deg);
   background: repeating-linear-gradient(90deg, oklch(0.85 0.17 95) 0 18px, #000 18px 30px); opacity: .55;
 }
+.captcha-grid.is-video { gap: 2px; }
+.captcha-grid.is-video .captcha-tile { aspect-ratio: auto; }
+.captcha-grid.is-video .captcha-tile::after { display: none; }
+.captcha-canvas { height: auto; }
 .captcha-tile.is-selected { border-color: var(--foreground); }
 .captcha-tile.is-selected .office-img { transform: scale(.88); }
 .captcha-tile.is-flagged .office-img { filter: grayscale(1) sepia(1) hue-rotate(-40deg) saturate(5) brightness(.6); }
@@ -243,13 +249,14 @@ img.office-img { filter: grayscale(1) contrast(1.25) brightness(.75) sepia(.5) h
   font-family: var(--font-mono); font-size: 1.3rem; letter-spacing: .1em; color: var(--foreground); background: var(--blood);
 }
 .captcha-verify:disabled { opacity: .6; cursor: default; }
+.captcha-result.is-pending { visibility: hidden; }
 .captcha-result { margin-top: 1.2rem; font-family: var(--font-mono); font-size: clamp(1.4rem, 2.6vw, 2.6rem); letter-spacing: .2em; }
 
 /* Elige quién sobrevive */
 .survivor-head { margin-top: 1.2rem; font-size: clamp(1.8rem, 3.6vw, 3.6rem); font-weight: 700; letter-spacing: .08em; line-height: 1.1; }
 .survivor-pair { display: flex; gap: clamp(1rem, 4vw, 4rem); margin: clamp(1.5rem, 4vh, 3rem) 0 0; }
 .survivor-card {
-  position: relative; display: flex; flex-direction: column; width: clamp(150px, 20vw, 300px); padding: .6rem;
+  position: relative; display: flex; flex-direction: column; width: clamp(140px, 15vw, 230px); padding: .6rem;
   border: 2px solid var(--border); background: oklch(0.08 0.005 20 / 0.7); cursor: pointer; color: var(--foreground);
 }
 .survivor-card:not(:disabled):hover, .survivor-card:not(:disabled):focus-visible { border-color: var(--blood); box-shadow: 0 0 40px var(--blood-dim); outline: none; }
@@ -259,7 +266,12 @@ img.office-img { filter: grayscale(1) contrast(1.25) brightness(.75) sepia(.5) h
 .survivor-card.is-gone { border-color: var(--blood); }
 .survivor-card.is-gone .office-img { filter: grayscale(1) sepia(1) hue-rotate(-40deg) saturate(5) brightness(.5); }
 .survivor-name { margin-top: .6rem; font-family: var(--font-mono); font-size: clamp(1.1rem, 1.8vw, 1.8rem); letter-spacing: .08em; }
-.survivor-role { font-family: var(--font-mono); font-size: 1rem; letter-spacing: .2em; }
+.survivor-skip {
+  margin-top: .8rem; padding: .35rem 1.2rem; border: 1px solid var(--border); background: transparent; cursor: pointer;
+  font-family: var(--font-mono); font-size: 1.1rem; letter-spacing: .12em; color: var(--muted-foreground);
+}
+.survivor-skip:not(:disabled):hover, .survivor-skip:not(:disabled):focus-visible { color: var(--foreground); border-color: var(--blood); outline: none; }
+.survivor-skip:disabled { visibility: hidden; }
 .survivor-x {
   position: absolute; inset: 0; display: grid; place-items: center;
   font-size: clamp(6rem, 14vw, 14rem); line-height: 1; color: var(--blood); text-shadow: 0 0 30px var(--blood);

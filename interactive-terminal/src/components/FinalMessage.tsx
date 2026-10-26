@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { playScream } from '../audio/sfx'
+import { playJumpscareScream, playTerminatedScream } from '../audio/sfx'
 import { useTimers } from '../hooks/useTimers'
 import { pickOne, type FinalRequest } from '../variants/types'
 
@@ -30,7 +30,8 @@ export function FinalMessage({ request, onDone }: FinalMessageProps) {
     // Effects may re-run (React StrictMode in dev); the scream must only sound once.
     if (!screamedRef.current) {
       screamedRef.current = true
-      playScream()
+      if (request.scare) playJumpscareScream()
+      else playTerminatedScream()
     }
     const scareTime = request.scare ? SCARE_MS : 0
     if (request.scare) schedule(scareTime, () => setScaring(false))

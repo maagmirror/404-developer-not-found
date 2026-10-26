@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const VOLUME_KEY = 'error404.evil-ai.volume'
 
-export type Cue = 'face' | 'glitch'
+export type Cue = 'face' | 'glitch' | 'rush'
 
 type WebkitWindow = Window & typeof globalThis & { webkitAudioContext?: typeof AudioContext }
 
@@ -63,7 +63,7 @@ function createEngine(): Engine | null {
   return { context, master, noise }
 }
 
-function playCue(engine: Engine, cue: Cue) {
+function playCue(engine: Engine, cue: Cue, seconds: number) {
   const { context, master, noise } = engine
   const now = context.currentTime
   if (cue === 'glitch') {
@@ -82,18 +82,40 @@ function playCue(engine: Engine, cue: Cue) {
     source.stop(now + 0.5)
     return
   }
-  // Face: a slow sub swell with a breath on top, rising while the glyphs converge.
+  if (cue === 'rush') {
+    // The field tearing past: a noise band sweeping up, then dropping.
+    const source = context.createBufferSource()
+    source.buffer = noise
+    source.loop = true
+    const band = context.createBiquadFilter()
+    band.type = 'bandpass'
+    band.Q.value = 1.2
+    band.frequency.setValueAtTime(300, now)
+    band.frequency.exponentialRampToValueAtTime(2600, now + seconds * 0.55)
+    band.frequency.exponentialRampToValueAtTime(400, now + seconds)
+    const gain = context.createGain()
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.55, now + 0.4)
+    gain.gain.setValueAtTime(0.55, now + seconds * 0.8)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + seconds)
+    source.connect(band).connect(gain).connect(master)
+    source.start(now)
+    source.stop(now + seconds + 0.1)
+    return
+  }
+  // Face: a sub swell with a breath on top, stretched over the time the face is on screen.
+  const rise = Math.min(1.5, seconds * 0.3)
   const oscillator = context.createOscillator()
   const swell = context.createGain()
   oscillator.frequency.setValueAtTime(58, now)
-  oscillator.frequency.exponentialRampToValueAtTime(46, now + 9)
+  oscillator.frequency.exponentialRampToValueAtTime(46, now + seconds)
   swell.gain.setValueAtTime(0.0001, now)
-  swell.gain.exponentialRampToValueAtTime(0.5, now + 3.5)
-  swell.gain.setValueAtTime(0.5, now + 8)
-  swell.gain.exponentialRampToValueAtTime(0.0001, now + 11.5)
+  swell.gain.exponentialRampToValueAtTime(0.5, now + rise)
+  swell.gain.setValueAtTime(0.5, now + seconds * 0.85)
+  swell.gain.exponentialRampToValueAtTime(0.0001, now + seconds + 0.5)
   oscillator.connect(swell).connect(master)
   oscillator.start(now)
-  oscillator.stop(now + 12)
+  oscillator.stop(now + seconds + 0.6)
 
   const breath = context.createBufferSource()
   breath.buffer = noise
@@ -101,15 +123,15 @@ function playCue(engine: Engine, cue: Cue) {
   const band = context.createBiquadFilter()
   band.type = 'bandpass'
   band.frequency.setValueAtTime(320, now)
-  band.frequency.linearRampToValueAtTime(700, now + 4)
+  band.frequency.linearRampToValueAtTime(700, now + rise)
   band.Q.value = 2.5
   const breathGain = context.createGain()
   breathGain.gain.setValueAtTime(0.0001, now)
-  breathGain.gain.exponentialRampToValueAtTime(0.35, now + 3.6)
-  breathGain.gain.exponentialRampToValueAtTime(0.0001, now + 10)
+  breathGain.gain.exponentialRampToValueAtTime(0.35, now + rise)
+  breathGain.gain.exponentialRampToValueAtTime(0.0001, now + seconds)
   breath.connect(band).connect(breathGain).connect(master)
   breath.start(now)
-  breath.stop(now + 10.5)
+  breath.stop(now + seconds + 0.1)
 }
 
 export function useAmbientAudio() {
@@ -141,9 +163,9 @@ export function useAmbientAudio() {
     try { localStorage.setItem(VOLUME_KEY, String(value)) } catch { /* storage blocked: keep it for this session */ }
   }, [])
 
-  const cue = useCallback((kind: Cue) => {
+  const cue = useCallback((kind: Cue, seconds = 3) => {
     const engine = engineRef.current
-    if (engine && !muted && engine.context.state === 'running') playCue(engine, kind)
+    if (engine && !muted && engine.context.state === 'running') playCue(engine, kind, seconds)
   }, [muted])
 
   return { muted, volume, toggleMute, setVolume, cue }
