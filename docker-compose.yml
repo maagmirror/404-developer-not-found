@@ -1,0 +1,24 @@
+# Levanta las tres pantallas de "Error 404 — CapDev not found".
+# Local:      docker compose up --build
+# Easypanel:  ver DEPLOY.md (una app por carpeta, o este compose como servicio Compose).
+services:
+  evil-ai:
+    build: ./evil-ai
+    image: error404/evil-ai
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+
+  interactive-terminal:
+    build: ./interactive-terminal
+    image: error404/interactive-terminal
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+
+  terminated:
+    build: ./terminated
+    image: error404/terminated
+    restart: unless-stopped
+    ports:
+      - "8083:80"
