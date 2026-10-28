@@ -1,8 +1,0 @@
-node_modules
-dist
-*.tsbuildinfo
-*.log
-.env
-Dockerfile
-.dockerignore
-.git
